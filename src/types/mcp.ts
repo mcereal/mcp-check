@@ -1,15 +1,40 @@
 /**
- * Model Context Protocol (MCP) specific types and interfaces
+ * MCP SDK types re-exports for compatibility
  */
 
-/**
- * MCP protocol version
- */
+import { z } from 'zod';
+import {
+  ToolSchema,
+  ResourceSchema,
+  PromptSchema,
+  CallToolResultSchema,
+  GetPromptResultSchema,
+  TextContentSchema,
+  ImageContentSchema,
+  ContentBlockSchema,
+  ClientCapabilitiesSchema,
+  ServerCapabilitiesSchema,
+} from '@modelcontextprotocol/sdk/types.js';
+
+// Re-export SDK types with MCP prefix for compatibility
+export type MCPTool = z.infer<typeof ToolSchema>;
+export type MCPResource = z.infer<typeof ResourceSchema>;
+export type MCPPrompt = z.infer<typeof PromptSchema>;
+export type MCPCallToolResult = z.infer<typeof CallToolResultSchema>;
+export type MCPGetPromptResult = z.infer<typeof GetPromptResultSchema>;
+export type MCPTextContent = z.infer<typeof TextContentSchema>;
+export type MCPImageContent = z.infer<typeof ImageContentSchema>;
+export type MCPContentBlock = z.infer<typeof ContentBlockSchema>;
+export type MCPClientCapabilities = z.infer<typeof ClientCapabilitiesSchema>;
+export type MCPServerCapabilities = z.infer<typeof ServerCapabilitiesSchema>;
+
+// Legacy compatibility types
+export type MCPContent = MCPContentBlock;
+export type MCPToolCallResponse = MCPCallToolResult;
+
+// Protocol version and message types (keeping these for now)
 export type MCPVersion = string;
 
-/**
- * MCP message types
- */
 export type MCPMessageType =
   | 'initialize'
   | 'initialized'
@@ -31,9 +56,7 @@ export type MCPMessageType =
   | 'notifications/tool_list_changed'
   | 'notifications/prompt_list_changed';
 
-/**
- * MCP request message
- */
+// JSON-RPC types (keeping for compatibility)
 export interface MCPRequest {
   jsonrpc: '2.0';
   id: string | number;
@@ -41,9 +64,6 @@ export interface MCPRequest {
   params?: any;
 }
 
-/**
- * MCP response message
- */
 export interface MCPResponse {
   jsonrpc: '2.0';
   id: string | number;
@@ -51,228 +71,30 @@ export interface MCPResponse {
   error?: MCPError;
 }
 
-/**
- * MCP notification message
- */
 export interface MCPNotification {
   jsonrpc: '2.0';
   method: string;
   params?: any;
 }
 
-/**
- * MCP error
- */
 export interface MCPError {
   code: number;
   message: string;
   data?: any;
 }
 
-/**
- * MCP initialization request
- */
-export interface MCPInitializeRequest extends MCPRequest {
-  method: 'initialize';
-  params: {
-    protocolVersion: MCPVersion;
-    capabilities: MCPClientCapabilities;
-    clientInfo: {
-      name: string;
-      version: string;
-    };
-  };
-}
-
-/**
- * MCP initialization response
- */
-export interface MCPInitializeResponse extends MCPResponse {
-  result: {
-    protocolVersion: MCPVersion;
-    capabilities: MCPServerCapabilities;
-    serverInfo: {
-      name: string;
-      version: string;
-    };
-  };
-}
-
-/**
- * MCP client capabilities
- */
-export interface MCPClientCapabilities {
-  experimental?: Record<string, any>;
-  sampling?: {};
-  roots?: {
-    listChanged?: boolean;
-  };
-}
-
-/**
- * MCP server capabilities
- */
-export interface MCPServerCapabilities {
-  experimental?: Record<string, any>;
-  logging?: {};
-  prompts?: {
-    listChanged?: boolean;
-  };
-  resources?: {
-    subscribe?: boolean;
-    listChanged?: boolean;
-  };
-  tools?: {
-    listChanged?: boolean;
-  };
-}
-
-/**
- * MCP tool definition
- */
-export interface MCPTool {
-  name: string;
-  description?: string;
-  inputSchema: any; // JSON Schema
-}
-
-/**
- * MCP tool call request
- */
-export interface MCPToolCallRequest extends MCPRequest {
-  method: 'tools/call';
-  params: {
-    name: string;
-    arguments?: any;
-  };
-}
-
-/**
- * MCP tool call response
- */
-export interface MCPToolCallResponse extends MCPResponse {
-  result: {
-    content: MCPContent[];
-    isError?: boolean;
-  };
-}
-
-/**
- * MCP content types
- */
-export type MCPContent = MCPTextContent | MCPImageContent | MCPResourceContent;
-
-/**
- * MCP text content
- */
-export interface MCPTextContent {
-  type: 'text';
-  text: string;
-}
-
-/**
- * MCP image content
- */
-export interface MCPImageContent {
-  type: 'image';
-  data: string; // base64
-  mimeType: string;
-}
-
-/**
- * MCP resource content
- */
-export interface MCPResourceContent {
-  type: 'resource';
-  resource: {
-    uri: string;
-    mimeType?: string;
-    text?: string;
-    blob?: string; // base64
-  };
-}
-
-/**
- * MCP resource definition
- */
-export interface MCPResource {
-  uri: string;
-  name: string;
-  description?: string;
-  mimeType?: string;
-}
-
-/**
- * MCP prompt definition
- */
-export interface MCPPrompt {
-  name: string;
-  description?: string;
-  arguments?: MCPPromptArgument[];
-}
-
-/**
- * MCP prompt argument
- */
-export interface MCPPromptArgument {
-  name: string;
-  description?: string;
-  required?: boolean;
-}
-
-/**
- * MCP client interface for testing
- */
+// Client interface (updated to use SDK types)
 export interface MCPClient {
-  /**
-   * Initialize connection and handshake
-   */
-  initialize(
-    capabilities?: MCPClientCapabilities,
-  ): Promise<MCPInitializeResponse>;
-
-  /**
-   * List available tools
-   */
+  connectFromTarget?(target: any): Promise<void>;
+  connectWithCustomTransport?(transport: any): Promise<void>;
   listTools(): Promise<MCPTool[]>;
-
-  /**
-   * Call a tool
-   */
-  callTool(name: string, args?: any): Promise<MCPToolCallResponse>;
-
-  /**
-   * List available resources
-   */
+  callTool(name: string, args?: any): Promise<MCPCallToolResult>;
   listResources(): Promise<MCPResource[]>;
-
-  /**
-   * Read a resource
-   */
-  readResource(uri: string): Promise<MCPContent[]>;
-
-  /**
-   * List available prompts
-   */
+  readResource(uri: string): Promise<MCPContentBlock[]>;
   listPrompts(): Promise<MCPPrompt[]>;
-
-  /**
-   * Get a prompt
-   */
-  getPrompt(name: string, args?: any): Promise<MCPContent[]>;
-
-  /**
-   * Send a ping
-   */
+  getPrompt(name: string, args?: any): Promise<MCPGetPromptResult>;
   ping(): Promise<void>;
-
-  /**
-   * Close the connection
-   */
   close(): Promise<void>;
-
-  /**
-   * Subscribe to notifications
-   */
-  onNotification(handler: (notification: MCPNotification) => void): void;
+  getServerCapabilities?(): MCPServerCapabilities | undefined;
+  getServerVersion?(): any;
 }

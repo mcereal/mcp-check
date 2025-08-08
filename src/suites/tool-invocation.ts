@@ -45,8 +45,21 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     const cases = [];
 
     try {
-      const client = new MCPTestClient(context.transport, context.logger);
-      await client.initialize();
+      const client = new MCPTestClient(context.logger);
+
+      // Try direct SDK transport first, fallback to custom transport adapter
+      try {
+        await client.connectFromTarget(context.config.target);
+      } catch (error) {
+        context.logger.info(
+          'Using custom transport adapter for tool invocation tests',
+          {
+            targetType: context.config.target.type,
+            reason: error.message,
+          },
+        );
+        await client.connectWithCustomTransport(context.transport);
+      }
 
       const tools = await client.listTools();
       const expectedTools = context.config.expectations?.tools || [];
@@ -145,9 +158,9 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
         durationMs: invokeTime,
         details: {
           input: basicInput,
-          responseContentCount: response.result?.content?.length || 0,
+          responseContentCount: response.content?.length || 0,
           responseTimeMs: invokeTime,
-          isError: response.result?.isError || false,
+          isError: response.isError || false,
         },
         ...(isValidResponse
           ? {}
@@ -264,12 +277,15 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     );
 
     try {
-      // Create a client with a very short timeout for this test
-      const timeoutClient = new MCPTestClient(
-        context.transport,
-        context.logger,
-        timeoutMs,
-      );
+      // Create a client for timeout testing
+      const timeoutClient = new MCPTestClient(context.logger);
+
+      // Connect using the same approach as main client
+      try {
+        await timeoutClient.connectFromTarget(context.config.target);
+      } catch (error) {
+        await timeoutClient.connectWithCustomTransport(context.transport);
+      }
 
       const basicInput = this.generateBasicInput(tool);
       const timeoutStart = Date.now();

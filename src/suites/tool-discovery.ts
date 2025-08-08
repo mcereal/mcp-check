@@ -42,8 +42,21 @@ export class ToolDiscoveryTestSuite implements TestSuitePlugin {
     const cases = [];
 
     try {
-      const client = new MCPTestClient(context.transport, context.logger);
-      await client.initialize();
+      const client = new MCPTestClient(context.logger);
+
+      // Connect using SDK approach
+      try {
+        await client.connectFromTarget(context.config.target);
+      } catch (error) {
+        context.logger.info(
+          'Using custom transport adapter for tool discovery tests',
+          {
+            targetType: context.config.target.type,
+            reason: error.message,
+          },
+        );
+        await client.connectWithCustomTransport(context.transport);
+      }
 
       // Test case 1: Tool enumeration
       try {

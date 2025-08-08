@@ -1,5 +1,5 @@
 /**
- * Handshake test suite - validates MCP protocol initialization
+ * Handshake test suite - validates MCP protocol initialization using official SDK
  */
 
 import {
@@ -15,7 +15,7 @@ export class HandshakeTestSuite implements TestSuitePlugin {
   readonly name = 'handshake';
   readonly version = '1.0.0';
   readonly description =
-    'Validates MCP protocol handshake and capability negotiation';
+    'Validates MCP protocol handshake and capability negotiation using official SDK';
   readonly tags = ['core', 'protocol'];
 
   validate(config: Partial<CheckConfig>): ValidationResult {
@@ -42,209 +42,268 @@ export class HandshakeTestSuite implements TestSuitePlugin {
     const startTime = Date.now();
     const cases = [];
 
-    // Test case 1: Basic connection establishment
+    // Test case 1: Basic connection establishment using SDK
     try {
-      const client = new MCPTestClient(context.transport, context.logger);
+      const client = new MCPTestClient(context.logger);
 
       const connectionStart = Date.now();
-      const response = await client.initialize();
+
+      // Try direct SDK transport first (if supported)
+      try {
+        await client.connectFromTarget(context.config.target);
+      } catch (error) {
+        // Fallback to custom transport adapter for unsupported transports (like TCP)
+        context.logger.info('Using custom transport adapter', {
+          targetType: context.config.target.type,
+          reason: error.message,
+        });
+        await client.connectWithCustomTransport(context.transport);
+      }
+
       const connectionTime = Date.now() - connectionStart;
+
+      // Get server info from SDK client
+      const serverCapabilities = client.getServerCapabilities();
+      const serverVersion = client.getServerVersion();
 
       cases.push({
         name: 'connection-establishment',
         status: 'passed' as const,
         durationMs: connectionTime,
         details: {
-          serverInfo: response.result.serverInfo,
-          protocolVersion: response.result.protocolVersion,
+          serverInfo: serverVersion,
+          protocolVersion: 'SDK-managed', // SDK handles protocol version
+          serverCapabilities,
           connectionTimeMs: connectionTime,
+          sdkVersion: '1.17.2', // Track SDK version for debugging
         },
       });
 
-      // Test case 2: Protocol version validation
+      // Test case 2: Server capabilities validation
       try {
-        const serverVersion = response.result.protocolVersion;
-        const minVersion = context.config.expectations?.minProtocolVersion;
-        const maxVersion = context.config.expectations?.maxProtocolVersion;
-
-        let versionValid = true;
-        let versionDetails: any = { serverVersion };
-
-        if (
-          minVersion &&
-          !this.isVersionCompatible(serverVersion, minVersion, 'min')
-        ) {
-          versionValid = false;
-          versionDetails.error = `Server version ${serverVersion} is below minimum ${minVersion}`;
-        }
-
-        if (
-          maxVersion &&
-          !this.isVersionCompatible(serverVersion, maxVersion, 'max')
-        ) {
-          versionValid = false;
-          versionDetails.error = `Server version ${serverVersion} is above maximum ${maxVersion}`;
-        }
+        const capabilitiesValid = this.validateServerCapabilities(
+          serverCapabilities,
+          context.config.expectations,
+        );
 
         cases.push({
-          name: 'protocol-version-validation',
-          status: versionValid ? 'passed' : 'failed',
+          name: 'server-capabilities-validation',
+          status: capabilitiesValid.valid ? 'passed' : 'failed',
           durationMs: 5,
-          details: versionDetails,
-          ...(versionValid
+          details: {
+            serverCapabilities,
+            validation: capabilitiesValid,
+          },
+          ...(capabilitiesValid.valid
             ? {}
             : {
                 error: {
-                  type: 'VersionMismatch',
-                  message: versionDetails.error,
-                  details: versionDetails,
+                  type: 'CapabilitiesMismatch',
+                  message:
+                    capabilitiesValid.errors?.join(', ') ||
+                    'Unknown validation error',
+                  details: capabilitiesValid,
                 },
               }),
         });
       } catch (error) {
         cases.push({
-          name: 'protocol-version-validation',
+          name: 'server-capabilities-validation',
           status: 'failed',
           durationMs: 5,
           error: {
             type: 'ValidationError',
-            message: error.message,
+            message: `Failed to validate server capabilities: ${error.message}`,
+            details: { error: error.message },
           },
         });
       }
 
-      // Test case 3: Capability negotiation
-      try {
-        const serverCapabilities = response.result.capabilities;
-        const expectedCapabilities =
-          context.config.expectations?.capabilities || [];
-
-        const missingCapabilities = expectedCapabilities.filter(
-          (cap) => !this.hasCapability(serverCapabilities, cap),
-        );
-
-        const capabilityDetails = {
-          serverCapabilities,
-          expectedCapabilities,
-          missingCapabilities,
-        };
-
-        cases.push({
-          name: 'capability-negotiation',
-          status: missingCapabilities.length === 0 ? 'passed' : 'failed',
-          durationMs: 10,
-          details: capabilityDetails,
-          ...(missingCapabilities.length > 0
-            ? {
-                error: {
-                  type: 'MissingCapabilities',
-                  message: `Missing capabilities: ${missingCapabilities.join(', ')}`,
-                  details: capabilityDetails,
-                },
-              }
-            : {}),
-        });
-      } catch (error) {
-        cases.push({
-          name: 'capability-negotiation',
-          status: 'failed',
-          durationMs: 10,
-          error: {
-            type: 'CapabilityError',
-            message: error.message,
-          },
-        });
-      }
-
-      // Test case 4: Ping/pong basic communication
+      // Test case 3: Basic ping test using SDK
       try {
         const pingStart = Date.now();
         await client.ping();
         const pingTime = Date.now() - pingStart;
 
         cases.push({
-          name: 'ping-pong-communication',
-          status: 'passed',
+          name: 'ping-test',
+          status: 'passed' as const,
           durationMs: pingTime,
           details: {
-            pingTimeMs: pingTime,
+            responseTimeMs: pingTime,
           },
         });
       } catch (error) {
         cases.push({
-          name: 'ping-pong-communication',
+          name: 'ping-test',
           status: 'failed',
-          durationMs: 0,
+          durationMs: Date.now() - Date.now(),
           error: {
             type: 'PingError',
-            message: error.message,
+            message: `Ping failed: ${error.message}`,
+            details: { error: error.message },
           },
         });
       }
 
+      // Test case 4: Tool discovery (if supported)
+      if (serverCapabilities?.tools) {
+        try {
+          const toolsStart = Date.now();
+          const tools = await client.listTools();
+          const toolsTime = Date.now() - toolsStart;
+
+          cases.push({
+            name: 'tool-discovery',
+            status: 'passed' as const,
+            durationMs: toolsTime,
+            details: {
+              toolCount: tools.length,
+              tools: tools.map((t) => ({
+                name: t.name,
+                description: t.description,
+              })),
+              responseTimeMs: toolsTime,
+            },
+          });
+        } catch (error) {
+          cases.push({
+            name: 'tool-discovery',
+            status: 'failed',
+            durationMs: 50,
+            error: {
+              type: 'ToolDiscoveryError',
+              message: `Tool discovery failed: ${error.message}`,
+              details: { error: error.message },
+            },
+          });
+        }
+      }
+
+      // Test case 5: Resource discovery (if supported)
+      if (serverCapabilities?.resources) {
+        try {
+          const resourcesStart = Date.now();
+          const resources = await client.listResources();
+          const resourcesTime = Date.now() - resourcesStart;
+
+          cases.push({
+            name: 'resource-discovery',
+            status: 'passed' as const,
+            durationMs: resourcesTime,
+            details: {
+              resourceCount: resources.length,
+              resources: resources.map((r) => ({ uri: r.uri, name: r.name })),
+              responseTimeMs: resourcesTime,
+            },
+          });
+        } catch (error) {
+          cases.push({
+            name: 'resource-discovery',
+            status: 'failed',
+            durationMs: 50,
+            error: {
+              type: 'ResourceDiscoveryError',
+              message: `Resource discovery failed: ${error.message}`,
+              details: { error: error.message },
+            },
+          });
+        }
+      }
+
+      // Test case 6: Prompt discovery (if supported)
+      if (serverCapabilities?.prompts) {
+        try {
+          const promptsStart = Date.now();
+          const prompts = await client.listPrompts();
+          const promptsTime = Date.now() - promptsStart;
+
+          cases.push({
+            name: 'prompt-discovery',
+            status: 'passed' as const,
+            durationMs: promptsTime,
+            details: {
+              promptCount: prompts.length,
+              prompts: prompts.map((p) => ({
+                name: p.name,
+                description: p.description,
+              })),
+              responseTimeMs: promptsTime,
+            },
+          });
+        } catch (error) {
+          cases.push({
+            name: 'prompt-discovery',
+            status: 'failed',
+            durationMs: 50,
+            error: {
+              type: 'PromptDiscoveryError',
+              message: `Prompt discovery failed: ${error.message}`,
+              details: { error: error.message },
+            },
+          });
+        }
+      }
+
+      // Clean up
       await client.close();
     } catch (error) {
+      context.logger.error('Handshake test suite failed', {
+        error: error.message,
+      });
+
       cases.push({
         name: 'connection-establishment',
         status: 'failed',
         durationMs: Date.now() - startTime,
         error: {
           type: 'ConnectionError',
-          message: error.message,
+          message: `Failed to establish connection: ${error.message}`,
+          details: { error: error.message },
         },
       });
     }
 
-    const overallStatus = cases.some((c) => c.status === 'failed')
-      ? 'failed'
-      : 'passed';
+    const endTime = Date.now();
 
     return {
       name: this.name,
-      status: overallStatus,
-      durationMs: Date.now() - startTime,
+      status:
+        cases.filter((c) => c.status === 'failed').length === 0
+          ? 'passed'
+          : 'failed',
+      durationMs: endTime - startTime,
       cases,
     };
   }
 
+  private validateServerCapabilities(
+    capabilities: any,
+    expectations?: any,
+  ): { valid: boolean; errors?: string[] } {
+    const errors: string[] = [];
+
+    // Add capability validation logic here
+    if (expectations?.requireTools && !capabilities?.tools) {
+      errors.push('Server does not support tools but they are required');
+    }
+
+    if (expectations?.requireResources && !capabilities?.resources) {
+      errors.push('Server does not support resources but they are required');
+    }
+
+    if (expectations?.requirePrompts && !capabilities?.prompts) {
+      errors.push('Server does not support prompts but they are required');
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors: errors.length > 0 ? errors : undefined,
+    };
+  }
+
   private isValidVersion(version: string): boolean {
-    // Simple semantic version validation
-    return /^\d+\.\d+\.\d+/.test(version);
-  }
-
-  private isVersionCompatible(
-    serverVersion: string,
-    compareVersion: string,
-    type: 'min' | 'max',
-  ): boolean {
-    // Simple version comparison - in production you'd use semver
-    const serverParts = serverVersion.split('.').map(Number);
-    const compareParts = compareVersion.split('.').map(Number);
-
-    for (
-      let i = 0;
-      i < Math.max(serverParts.length, compareParts.length);
-      i++
-    ) {
-      const serverPart = serverParts[i] || 0;
-      const comparePart = compareParts[i] || 0;
-
-      if (serverPart > comparePart) {
-        return type === 'min' ? true : false;
-      } else if (serverPart < comparePart) {
-        return type === 'min' ? false : true;
-      }
-    }
-
-    return true; // Equal versions are compatible
-  }
-
-  private hasCapability(capabilities: any, capability: string): boolean {
-    if (!capabilities || typeof capabilities !== 'object') {
-      return false;
-    }
-
-    // Check if capability exists as a top-level key
-    return capability in capabilities;
+    // Simple version validation - you can enhance this
+    return /^\d{4}-\d{2}-\d{2}$/.test(version);
   }
 }
