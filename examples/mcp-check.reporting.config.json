@@ -1,0 +1,119 @@
+{
+    "$schema": "../schemas/mcp-check.config.schema.json",
+    "target": {
+        "type": "stdio",
+        "command": "node",
+        "args": [
+            "dist/server.js"
+        ],
+        "env": {
+            "DEBUG": "mcp:*"
+        },
+        "cwd": "./examples/servers/basic"
+    },
+    "expectations": {
+        "minProtocolVersion": "1.0.0",
+        "capabilities": [
+            "tools",
+            "resources"
+        ],
+        "tools": [
+            {
+                "name": "searchDocs",
+                "required": true,
+                "inputSchemaRef": "#/definitions/SearchQuery",
+                "outputSchemaRef": "#/definitions/SearchResult"
+            }
+        ]
+    },
+    "suites": [
+        "handshake",
+        "tool-discovery",
+        "tool-invocation",
+        "streaming"
+    ],
+    "timeouts": {
+        "connectMs": 5000,
+        "invokeMs": 15000,
+        "shutdownMs": 3000
+    },
+    "chaos": {
+        "enable": true,
+        "seed": 12345,
+        "networkJitter": {
+            "delayMs": [
+                0,
+                50
+            ],
+            "dropProbability": 0.02,
+            "duplicateProbability": 0.01
+        },
+        "streamChaos": {
+            "chunkJitterMs": [
+                0,
+                100
+            ],
+            "reorderProbability": 0.05,
+            "duplicateChunkProbability": 0.01
+        },
+        "protocolChaos": {
+            "injectAbortProbability": 0.05,
+            "malformedJsonProbability": 0.01,
+            "unexpectedMessageProbability": 0.02
+        }
+    },
+    "reporting": {
+        "formats": [
+            "html",
+            "json",
+            "junit",
+            "badge"
+        ],
+        "outputDir": "./reports",
+        "includeFixtures": true,
+        "redaction": {
+            "enabled": true,
+            "allowedFields": [
+                "name",
+                "status",
+                "durationMs",
+                "message",
+                "type",
+                "timestamp",
+                "total",
+                "passed",
+                "failed",
+                "skipped",
+                "warnings",
+                "version",
+                "platform",
+                "nodeVersion",
+                "architecture",
+                "mcpCheckVersion"
+            ],
+            "patterns": [
+                "password.*",
+                "secret.*",
+                "token.*",
+                "api[_-]?key.*",
+                "auth.*"
+            ]
+        },
+        "telemetry": {
+            "opentelemetry": {
+                "enabled": false,
+                "endpoint": "https://your-otel-collector.example.com/v1/traces",
+                "serviceName": "mcp-check-ci"
+            },
+            "sentry": {
+                "enabled": false,
+                "dsn": "https://your-sentry-dsn@sentry.io/project-id",
+                "environment": "development"
+            }
+        }
+    },
+    "parallelism": {
+        "maxConcurrentTests": 4,
+        "maxConcurrentConnections": 2
+    }
+}
