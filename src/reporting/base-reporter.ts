@@ -112,7 +112,17 @@ export abstract class BaseReporter implements Reporter {
   }
 
   protected redactResults(results: TestResults): TestResults {
-    return this.redactor.redact(results);
+    const redacted = this.redactor.redact(results);
+
+    // Filter fixtures based on includeFixtures configuration
+    if (this.config.includeFixtures === false) {
+      return {
+        ...redacted,
+        fixtures: [],
+      };
+    }
+
+    return redacted;
   }
 
   protected getOutputPath(filename: string): string {
