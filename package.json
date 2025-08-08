@@ -1,0 +1,111 @@
+{
+  "name": "@mcereal/mcp-check",
+  "version": "0.1.0",
+  "description": "A CLI test runner + conformance suite for Model Context Protocol (MCP) compliance",
+  "keywords": [
+    "MCP",
+    "Model Context Protocol",
+    "CLI",
+    "Test",
+    "Validation",
+    "Compliance",
+    "Conformance"
+  ],
+  "homepage": "https://github.com/mcereal/mcp-check#readme",
+  "bugs": {
+    "url": "https://github.com/mcereal/mcp-check/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mcereal/mcp-check.git"
+  },
+  "license": "MIT",
+  "author": "Michael Curtis <mpbcurtis@gmail.com>",
+  "readme": "README.md",
+  "contributors": [
+    {
+      "name": "Michael Curtis",
+      "email": "mpbcurtis@gmail.com",
+      "url": "https://github.com/mcereal"
+    }
+  ],
+  "maintainers": [
+    {
+      "name": "Michael Curtis",
+      "email": "mpbcurtis@gmail.com",
+      "url": "https://github.com/mcereal"
+    }
+  ],
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "test": "jest --detectOpenHandles --forceExit --config jest.config.ts",
+    "test:watch": "jest --watch --config jest.config.ts",
+    "test:coverage": "jest --detectOpenHandles --forceExit --config jest.config.ts --coverage",
+    "start:dev": "cd testconnection && nest start --watch",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "prepublishOnly": "npm run lint && npm run test && npm run build",
+    "prepare": "npm run build",
+    "clean": "rimraf dist",
+    "doc": "typedoc"
+  },
+  "peerDependencies": {
+    "typescript": ">=4.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "package.json"
+  ],
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/sponsors/mcereal"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^11.0.3",
+    "@semantic-release/npm": "^12.0.2",
+    "@types/cache-manager": "^4.0.6",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.2.0",
+    "@typescript-eslint/eslint-plugin": "^8.39.0",
+    "@typescript-eslint/parser": "^8.39.0",
+    "eslint": "^9.32.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "jest": "^30.0.5",
+    "prettier": "^3.6.2",
+    "rimraf": "^6.0.1",
+    "semantic-release": "^24.2.7",
+    "ts-jest": "^29.4.1",
+    "ts-node": "^10.9.2",
+    "typedoc": "^0.28.9",
+    "typescript": "^5.9.2"
+  }
+}
