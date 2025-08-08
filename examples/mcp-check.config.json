@@ -1,0 +1,88 @@
+{
+    "$schema": "../schemas/mcp-check.config.schema.json",
+    "target": {
+        "type": "stdio",
+        "command": "node",
+        "args": [
+            "dist/server.js"
+        ],
+        "env": {
+            "DEBUG": "mcp:*"
+        },
+        "cwd": "./examples/servers/basic"
+    },
+    "expectations": {
+        "minProtocolVersion": "1.0.0",
+        "capabilities": [
+            "tools",
+            "resources"
+        ],
+        "tools": [
+            {
+                "name": "searchDocs",
+                "required": true,
+                "description": "Search documentation",
+                "inputSchemaRef": "#/definitions/SearchQuery"
+            },
+            {
+                "name": "getWeather",
+                "required": false,
+                "description": "Get weather information"
+            }
+        ],
+        "resources": [
+            {
+                "uri": "file://docs/",
+                "name": "Documentation",
+                "description": "Project documentation"
+            }
+        ]
+    },
+    "suites": [
+        "handshake",
+        "tool-discovery",
+        "tool-invocation",
+        "streaming"
+    ],
+    "timeouts": {
+        "connectMs": 5000,
+        "invokeMs": 15000,
+        "shutdownMs": 3000,
+        "streamMs": 30000
+    },
+    "chaos": {
+        "enable": false,
+        "seed": 12345,
+        "network": {
+            "delayMs": [
+                0,
+                100
+            ],
+            "dropProbability": 0.01
+        },
+        "protocol": {
+            "injectAbortProbability": 0.05
+        }
+    },
+    "reporting": {
+        "formats": [
+            "html",
+            "json",
+            "junit"
+        ],
+        "outputDir": "./reports",
+        "includeFixtures": true,
+        "redaction": {
+            "enabled": true,
+            "allowedFields": [
+                "name",
+                "type",
+                "description"
+            ]
+        }
+    },
+    "parallelism": {
+        "maxConcurrentTests": 1,
+        "maxConcurrentConnections": 1
+    }
+}

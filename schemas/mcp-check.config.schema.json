@@ -1,0 +1,320 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "MCP Check Configuration",
+    "description": "Configuration schema for mcp-check testing framework",
+    "type": "object",
+    "required": [
+        "target"
+    ],
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "description": "JSON Schema reference"
+        },
+        "target": {
+            "description": "Target configuration for MCP server/client",
+            "oneOf": [
+                {
+                    "type": "object",
+                    "required": [
+                        "type",
+                        "command"
+                    ],
+                    "properties": {
+                        "type": {
+                            "const": "stdio"
+                        },
+                        "command": {
+                            "type": "string"
+                        },
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "env": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        },
+                        "cwd": {
+                            "type": "string"
+                        },
+                        "shell": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                {
+                    "type": "object",
+                    "required": [
+                        "type",
+                        "host",
+                        "port"
+                    ],
+                    "properties": {
+                        "type": {
+                            "const": "tcp"
+                        },
+                        "host": {
+                            "type": "string"
+                        },
+                        "port": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                        },
+                        "tls": {
+                            "type": "boolean"
+                        },
+                        "timeout": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                },
+                {
+                    "type": "object",
+                    "required": [
+                        "type",
+                        "url"
+                    ],
+                    "properties": {
+                        "type": {
+                            "const": "websocket"
+                        },
+                        "url": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "headers": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        },
+                        "protocols": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "expectations": {
+            "type": "object",
+            "description": "Expected capabilities and behavior",
+            "properties": {
+                "minProtocolVersion": {
+                    "type": "string"
+                },
+                "maxProtocolVersion": {
+                    "type": "string"
+                },
+                "capabilities": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tools": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "name"
+                        ],
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "required": {
+                                "type": "boolean"
+                            },
+                            "inputSchemaRef": {
+                                "type": "string"
+                            },
+                            "outputSchemaRef": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            },
+                            "tags": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "uri"
+                        ],
+                        "properties": {
+                            "uri": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            },
+                            "mimeType": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "suites": {
+            "description": "Test suites to run",
+            "oneOf": [
+                {
+                    "const": "all"
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            ]
+        },
+        "timeouts": {
+            "type": "object",
+            "description": "Timeout configurations",
+            "properties": {
+                "connectMs": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "invokeMs": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "shutdownMs": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "streamMs": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "chaos": {
+            "type": "object",
+            "description": "Chaos engineering configuration",
+            "properties": {
+                "enable": {
+                    "type": "boolean"
+                },
+                "seed": {
+                    "type": "integer"
+                },
+                "network": {
+                    "type": "object",
+                    "properties": {
+                        "delayMs": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
+                        },
+                        "dropProbability": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "duplicateProbability": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        }
+                    }
+                },
+                "protocol": {
+                    "type": "object",
+                    "properties": {
+                        "injectAbortProbability": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        },
+                        "malformedJsonProbability": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        }
+                    }
+                }
+            }
+        },
+        "reporting": {
+            "type": "object",
+            "description": "Report generation configuration",
+            "properties": {
+                "formats": {
+                    "type": "array",
+                    "items": {
+                        "enum": [
+                            "html",
+                            "json",
+                            "junit",
+                            "badge"
+                        ]
+                    }
+                },
+                "outputDir": {
+                    "type": "string"
+                },
+                "includeFixtures": {
+                    "type": "boolean"
+                },
+                "redaction": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "allowedFields": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "parallelism": {
+            "type": "object",
+            "description": "Parallel execution configuration",
+            "properties": {
+                "maxConcurrentTests": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "maxConcurrentConnections": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        }
+    }
+}
