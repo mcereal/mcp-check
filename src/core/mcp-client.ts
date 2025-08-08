@@ -62,6 +62,7 @@ export class MCPTestClient {
   private client: Client;
   private sdkTransport?: SDKTransport;
   private initialized = false;
+  private notificationHandlers: ((message: any) => void)[] = [];
 
   constructor(
     private logger: Logger,
@@ -76,6 +77,62 @@ export class MCPTestClient {
         },
       },
     });
+  }
+
+  /**
+   * Initialize with custom transport
+   */
+  async initialize(transport?: any, capabilities?: any): Promise<any> {
+    if (this.initialized) {
+      throw new Error('Client is already initialized');
+    }
+
+    // If transport is provided, use it as a custom transport
+    if (transport) {
+      await this.connectWithCustomTransport(transport);
+    }
+
+    // Connect using the SDK
+    if (!this.sdkTransport) {
+      throw new Error('No transport configured');
+    }
+
+    try {
+      await this.client.connect(this.sdkTransport);
+      this.initialized = true;
+
+      this.logger.info('MCP client initialized using SDK', {
+        serverCapabilities: this.client.getServerCapabilities(),
+        serverVersion: this.client.getServerVersion(),
+      });
+
+      // Mock response for testing compatibility
+      return {
+        jsonrpc: '2.0',
+        id: 'init-' + Date.now(),
+        result: {
+          protocolVersion: '2024-11-05',
+          capabilities: this.client.getServerCapabilities(),
+          serverInfo: this.client.getServerVersion(),
+        },
+      };
+    } catch (error) {
+      this.logger.error('Failed to initialize MCP client', { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Add notification handler
+   */
+  onNotification(handler: (message: any) => void): void {
+    this.notificationHandlers.push(handler);
+  }
+
+  private emitNotification(message: any): void {
+    for (const handler of this.notificationHandlers) {
+      handler(message);
+    }
   }
 
   /**
@@ -111,12 +168,20 @@ export class MCPTestClient {
   } /**
    * Connect using custom transport (with adapter)
    */
+  /**
+   * Connect using custom transport (with adapter)
+   */
   async connectWithCustomTransport(transport: Transport): Promise<void> {
     // Bridge your custom transport to SDK transport interface
     this.sdkTransport = new TransportAdapter(transport);
 
     // Setup event bridging
     transport.on('message', (message) => {
+      // Handle notifications
+      if (message && !message.id && message.method) {
+        this.emitNotification(message);
+      }
+
       if (this.sdkTransport?.onmessage) {
         this.sdkTransport.onmessage(message);
       }

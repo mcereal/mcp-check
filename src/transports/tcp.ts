@@ -26,22 +26,6 @@ export class TcpTransport extends BaseTransport {
     try {
       const connectionStart = Date.now();
 
-      if (target.tls) {
-        this.socket = tls.connect({
-          host: target.host,
-          port: target.port,
-          timeout: target.timeout || 5000,
-        });
-      } else {
-        this.socket = net.connect({
-          host: target.host,
-          port: target.port,
-          timeout: target.timeout || 5000,
-        });
-      }
-
-      this.setupSocketHandlers();
-
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(
@@ -49,17 +33,40 @@ export class TcpTransport extends BaseTransport {
           );
         }, target.timeout || 5000);
 
-        this.socket!.on('connect', () => {
-          clearTimeout(timeout);
-          this._stats.connectionTime = Date.now() - connectionStart;
-          this.setState('connected');
-          resolve();
-        });
+        if (target.tls) {
+          this.socket = tls.connect(
+            {
+              host: target.host,
+              port: target.port,
+            },
+            () => {
+              clearTimeout(timeout);
+              this._stats.connectionTime = Date.now() - connectionStart;
+              this.setState('connected');
+              resolve();
+            },
+          );
+        } else {
+          this.socket = net.connect(
+            {
+              host: target.host,
+              port: target.port,
+            },
+            () => {
+              clearTimeout(timeout);
+              this._stats.connectionTime = Date.now() - connectionStart;
+              this.setState('connected');
+              resolve();
+            },
+          );
+        }
 
-        this.socket!.on('error', (error) => {
+        this.socket.on('error', (error) => {
           clearTimeout(timeout);
           reject(error);
         });
+
+        this.setupSocketHandlers();
       });
     } catch (error) {
       this.handleError(error as Error);

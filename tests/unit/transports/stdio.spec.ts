@@ -104,24 +104,31 @@ describe('StdioTransport', () => {
     it('should handle process spawn errors', async () => {
       const target: Target = {
         type: 'stdio',
-        command: 'nonexistent',
-        args: [],
+        command: 'node',
+        args: ['--invalid-flag'],
       };
+
+      // Mock spawn to return process that emits error immediately
+      const mockProcess = new EventEmitter() as ChildProcess;
+      (mockProcess as any).stdin = new EventEmitter();
+      (mockProcess as any).stdout = new EventEmitter();
+      (mockProcess as any).stderr = new EventEmitter();
+      mockProcess.kill = jest.fn();
+
+      const spawn = require('child_process').spawn as jest.Mock;
+      spawn.mockReturnValue(mockProcess);
 
       // Attach error handler to prevent unhandled rejection
       transport.on('error', () => {});
 
-      // Set up process to emit error
+      // Set up process to emit error before timeout
+      const connectPromise = transport.connect(target);
+
       setTimeout(() => {
-        const errorCallback = (mockProcess.on as jest.Mock).mock.calls.find(
-          (call) => call[0] === 'error',
-        )?.[1];
-        if (errorCallback) errorCallback(new Error('Process spawn failed'));
+        mockProcess.emit('error', new Error('Process spawn failed'));
       }, 10);
 
-      await expect(transport.connect(target)).rejects.toThrow(
-        'Process spawn failed',
-      );
+      await expect(connectPromise).rejects.toThrow('Process spawn failed');
     });
 
     it('should timeout on process startup', async () => {
