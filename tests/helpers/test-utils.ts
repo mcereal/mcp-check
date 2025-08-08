@@ -1,65 +1,174 @@
 /**
- * Test utilities and helpers
+ * Comprehensive test utilities for mcp-check
  */
 
-import { CheckConfig, ResolvedCheckConfig } from '../../src/types/config';
-import { resolveConfig } from '../../src/core/config';
-import { MockMCPServer, MockServerConfig } from './mock-server';
+import { Logger } from '../../src/types/reporting';
+import { ResolvedCheckConfig } from '../../src/types/config';
+import { TestContext, TestFixture } from '../../src/types/test';
+import { MockTransport, createMockServer } from './test-server';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 /**
- * Create a test configuration with sensible defaults
+ * Create a mock logger for testing
+ */
+export function createMockLogger(): jest.Mocked<Logger> {
+  return {
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    child: jest.fn().mockImplementation(() => createMockLogger()),
+  };
+}
+
+/**
+ * Create a minimal test configuration
  */
 export function createTestConfig(
-  overrides: Partial<CheckConfig> = {},
+  overrides: Partial<ResolvedCheckConfig> = {},
 ): ResolvedCheckConfig {
-  const defaultConfig: CheckConfig = {
+  return {
+    $schema: 'https://example.com/schema.json',
     target: {
       type: 'stdio',
-      command: 'echo',
-      args: ['{}'],
+      command: 'node',
+      args: ['test-server.js'],
     },
+    suites: ['handshake'],
     expectations: {
       minProtocolVersion: '2024-11-05',
       capabilities: [],
     },
-    suites: ['handshake'],
     timeouts: {
       connectMs: 5000,
-      invokeMs: 5000,
-      shutdownMs: 1000,
+      invokeMs: 10000,
+      shutdownMs: 3000,
     },
     chaos: {
       enable: false,
+      seed: 12345,
+      network: {
+        delayMs: [0, 100],
+        dropProbability: 0,
+        duplicateProbability: 0,
+        reorderProbability: 0,
+        corruptProbability: 0,
+      },
+      protocol: {
+        injectAbortProbability: 0,
+        malformedJsonProbability: 0,
+        unexpectedMessageProbability: 0,
+        invalidSchemaoProbability: 0,
+      },
+      timing: {
+        clockSkewMs: [0, 50],
+        processingDelayMs: [0, 50],
+        timeoutReductionFactor: 1.0,
+      },
+      intensity: 0,
     },
     reporting: {
+      outputDir: './test-output',
       formats: ['json'],
-      outputDir: './test-reports',
-      includeFixtures: false,
+      includeFixtures: true,
+    },
+    parallelism: {
+      maxConcurrentTests: 1,
+      maxConcurrentConnections: 1,
+    },
+    version: '1.0.0',
+    environment: {
+      platform: 'test',
+      nodeVersion: '20.0.0',
+      architecture: 'x64',
     },
     ...overrides,
   };
-
-  return resolveConfig(defaultConfig);
 }
 
 /**
- * Create a mock server for testing
+ * Create a test context
  */
-export async function createMockServer(
-  config: MockServerConfig,
-): Promise<MockMCPServer> {
-  const server = new MockMCPServer(config);
-  await server.start();
-  return server;
+export function createTestContext(
+  configOverrides: Partial<ResolvedCheckConfig> = {},
+  transportOverrides?: Partial<MockTransport>,
+): TestContext {
+  const config = createTestConfig(configOverrides);
+  const logger = createMockLogger();
+  const transport = new MockTransport();
+
+  // Apply transport overrides if provided
+  if (transportOverrides) {
+    Object.assign(transport, transportOverrides);
+  }
+
+  return {
+    config,
+    transport: transport as any,
+    logger,
+    fixtures: {
+      generate: jest.fn(),
+      save: jest.fn(),
+      load: jest.fn(),
+      list: jest.fn(),
+    },
+  };
 }
 
 /**
- * Wait for a condition to be true
+ * Create a test fixture
+ */
+export function createTestFixture(
+  overrides: Partial<TestFixture> = {},
+): TestFixture {
+  return {
+    id: 'test-fixture-1',
+    description: 'Test fixture for unit testing',
+    timestamp: new Date().toISOString(),
+    target: {
+      type: 'stdio',
+      command: 'node',
+      args: ['test-server.js'],
+    },
+    scenario: {
+      expectedBehavior: 'Server should respond correctly',
+      actualBehavior: 'Server responded as expected',
+    },
+    reproduction: {
+      command: 'npm test',
+      environment: {
+        NODE_ENV: 'test',
+      },
+    },
+    ...overrides,
+  };
+}
+
+/**
+ * Create a temporary directory for testing
+ */
+export function createTempDir(prefix: string = 'mcp-test-'): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+}
+
+/**
+ * Clean up temporary directory
+ */
+export function cleanupTempDir(dirPath: string): void {
+  if (fs.existsSync(dirPath)) {
+    fs.rmSync(dirPath, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Wait for a condition with timeout
  */
 export function waitFor(
   condition: () => boolean | Promise<boolean>,
-  timeoutMs: number = 5000,
-  checkIntervalMs: number = 100,
+  timeoutMs = 1000,
+  intervalMs = 50,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
@@ -75,12 +184,12 @@ export function waitFor(
         // Continue checking
       }
 
-      if (Date.now() - startTime > timeoutMs) {
+      if (Date.now() - startTime >= timeoutMs) {
         reject(new Error(`Condition not met within ${timeoutMs}ms`));
         return;
       }
 
-      setTimeout(check, checkIntervalMs);
+      setTimeout(check, intervalMs);
     };
 
     check();
@@ -88,30 +197,53 @@ export function waitFor(
 }
 
 /**
- * Create a temporary directory for test outputs
+ * Sleep for a specified duration
  */
-export function createTempDir(): string {
-  const os = require('os');
-  const path = require('path');
-  const fs = require('fs');
-
-  const tmpDir = path.join(
-    os.tmpdir(),
-    'mcp-check-test',
-    Date.now().toString(),
-  );
-  fs.mkdirSync(tmpDir, { recursive: true });
-  return tmpDir;
+export function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
- * Clean up temporary directory
+ * Assert that a function throws with a specific message
  */
-export function cleanupTempDir(dir: string): void {
-  const fs = require('fs');
+export async function expectToThrow(
+  fn: () => Promise<any> | any,
+  expectedMessage?: string | RegExp,
+): Promise<void> {
+  let error: Error | undefined;
+
   try {
-    fs.rmSync(dir, { recursive: true, force: true });
-  } catch (error) {
-    // Ignore cleanup errors
+    await fn();
+  } catch (e) {
+    error = e as Error;
+  }
+
+  expect(error).toBeDefined();
+
+  if (expectedMessage) {
+    if (typeof expectedMessage === 'string') {
+      expect(error!.message).toContain(expectedMessage);
+    } else {
+      expect(error!.message).toMatch(expectedMessage);
+    }
   }
 }
+
+/**
+ * Test data generators
+ */
+export const testData = {
+  randomString(length = 10): string {
+    return Math.random()
+      .toString(36)
+      .substring(2, 2 + length);
+  },
+
+  randomNumber(min = 0, max = 100): number {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  },
+
+  randomId(): string {
+    return `${this.randomString(8)}-${this.randomString(4)}-${this.randomString(4)}-${this.randomString(4)}-${this.randomString(12)}`;
+  },
+};
