@@ -24,6 +24,8 @@ Last updated: 2025-10-07.
 - Align `suites: "all"` resolver output with actual registered suites and add guard rails when optional suites are missing.
 - Build richer example MCP targets (stdio and WebSocket) that exercise streaming, resources, and chaos scenarios.
 - Author configuration reference documentation (schema walkthrough, advanced overrides, and troubleshooting).
+- Restore sandbox-friendly integration coverage for the CLI by introducing mocked transport harnesses in place of the removed process-spawning tests.
+- Document recommended metadata for `expectations.tools` so test authors can align inputs/outputs with the invocation suite’s validation rules.
 
 ## Planned / Backlog
 

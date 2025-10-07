@@ -14,7 +14,7 @@ MCP Check is a conformance and reliability harness for Model Context Protocol (M
 
 ## Project Status
 
-This repository is pre-release software. APIs may change as we expand coverage and tighten the developer experience. Follow the [feature roadmap](docs/roadmap.md) for up-to-date progress and planned milestones.
+This repository is pre-release software. APIs may change as we expand coverage and tighten the developer experience. Unit test suites (including CLI and tool invocation) run locally today; broader integration coverage is being re-imagined around mock transports per the [feature roadmap](docs/roadmap.md).
 
 ## Getting Started
 
