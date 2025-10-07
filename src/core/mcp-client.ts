@@ -165,9 +165,8 @@ export class MCPTestClient {
     }
 
     await this.connect();
-  } /**
-   * Connect using custom transport (with adapter)
-   */
+  }
+
   /**
    * Connect using custom transport (with adapter)
    */
