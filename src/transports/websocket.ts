@@ -28,25 +28,42 @@ export class WebSocketTransport extends BaseTransport {
         headers: target.headers,
       });
 
-      this.setupWebSocketHandlers();
-
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error(`WebSocket connection timeout to ${target.url}`));
+          // Normalise rejection so tests receive a consistent Error instance
+          const timeoutError = new Error(
+            `WebSocket connection timeout to ${target.url}`,
+          );
+          cleanup();
+          reject(timeoutError);
         }, 10000);
 
-        this.ws!.on('open', () => {
+        const handleOpen = () => {
           clearTimeout(timeout);
           this._stats.connectionTime = Date.now() - connectionStart;
           this.setState('connected');
+          cleanup();
           resolve();
-        });
+        };
 
-        this.ws!.on('error', (error) => {
+        const handleError = (error: Error) => {
           clearTimeout(timeout);
+          cleanup();
+          this.handleError(error);
           reject(error);
-        });
+        };
+
+        const cleanup = () => {
+          if (!this.ws) return;
+          this.ws.off('open', handleOpen as any);
+          this.ws.off('error', handleError as any);
+        };
+
+        this.ws.on('open', handleOpen as any);
+        this.ws.on('error', handleError as any);
       });
+
+      this.setupWebSocketHandlers();
     } catch (error) {
       this.handleError(error as Error);
       throw error;

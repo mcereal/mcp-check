@@ -121,7 +121,16 @@ export abstract class BaseTransport extends EventEmitter implements Transport {
    */
   protected handleError(error: Error): void {
     this.setState('error');
-    this.emit('error', error);
+    if (this.listenerCount('error') > 0) {
+      this.emit('error', error);
+    } else {
+      // Preserve node semantics without crashing tests when no listener is attached
+      // eslint-disable-next-line no-console
+      console.error('Unhandled transport error', {
+        transport: this.type,
+        message: error.message,
+      });
+    }
   }
 
   /**
