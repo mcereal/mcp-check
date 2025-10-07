@@ -4,7 +4,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { TestFixture, TestFixtureManager } from '../types/test';
 import { Logger } from '../types/reporting';
 
@@ -19,7 +19,7 @@ export class FileFixtureManager implements TestFixtureManager {
 
   async generate(scenario: Partial<TestFixture>): Promise<TestFixture> {
     const fixture: TestFixture = {
-      id: scenario.id || `fixture-${uuidv4()}`,
+      id: scenario.id || `fixture-${randomUUID()}`,
       description: scenario.description || 'Generated test fixture',
       timestamp: new Date().toISOString(),
       chaosConfig: scenario.chaosConfig,

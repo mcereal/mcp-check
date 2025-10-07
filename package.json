@@ -97,8 +97,6 @@
     "@types/cache-manager": "^4.0.6",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.2.0",
-    "@types/semver": "^7.7.0",
-    "@types/uuid": "^10.0.0",
     "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
@@ -120,8 +118,6 @@
     "chalk": "^5.5.0",
     "commander": "^14.0.0",
     "jsonschema": "^1.5.0",
-    "semver": "^7.7.2",
-    "uuid": "^11.1.0",
     "ws": "^8.18.3"
   }
 }
