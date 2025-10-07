@@ -43,10 +43,14 @@ jobs:
         with:
           prompt-file: .github/mcp-architecture.prompt.yml
           input: |
-            objective: ${{ github.event.inputs.objective }}
-            context: ${{ github.event.inputs.context }}
-            constraints: ${{ github.event.inputs.constraints }}
-            roadmap: ${{ github.event.inputs.roadmap }}
+            objective: >-
+              ${{ github.event.inputs.objective }}
+            context: >-
+              ${{ github.event.inputs.context }}
+            constraints: >-
+              ${{ github.event.inputs.constraints }}
+            roadmap: >-
+              ${{ github.event.inputs.roadmap }}
 
       - name: Capture output in job summary
         run: |

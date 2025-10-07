@@ -43,10 +43,14 @@ jobs:
         with:
           prompt-file: .github/mcp-development.prompt.yml
           input: |
-            task: ${{ github.event.inputs.task }}
-            spec: ${{ github.event.inputs.spec }}
-            diff: ${{ github.event.inputs.diff }}
-            context: ${{ github.event.inputs.context }}
+            task: >-
+              ${{ github.event.inputs.task }}
+            spec: >-
+              ${{ github.event.inputs.spec }}
+            diff: >-
+              ${{ github.event.inputs.diff }}
+            context: >-
+              ${{ github.event.inputs.context }}
 
       - name: Capture output in job summary
         run: |

@@ -55,9 +55,12 @@ jobs:
         with:
           prompt-file: .github/mcp-verification.prompt.yml
           input: |
-            diff: ${{ steps.pr.outputs.diff }}
-            tests: ${{ steps.pr.outputs.tests }}
-            context: ${{ steps.pr.outputs.metadata }}
+            diff: |-
+              ${{ steps.pr.outputs.diff }}
+            tests: >-
+              ${{ steps.pr.outputs.tests }}
+            context: >-
+              ${{ steps.pr.outputs.metadata }}
 
       - name: Append results to job summary
         run: |
