@@ -51,7 +51,7 @@ jobs:
 
       - name: Run verification prompt
         id: verification
-        uses: actions/ai-inference@v1
+        uses: actions/ai-inference@v2.0.1
         with:
           prompt-file: .github/mcp-verification.prompt.yml
           input: |

@@ -39,7 +39,7 @@ jobs:
 
       - name: Run development guidance prompt
         id: devplan
-        uses: actions/ai-inference@v1
+        uses: actions/ai-inference@v2.0.1
         with:
           prompt-file: .github/mcp-development.prompt.yml
           input: |
