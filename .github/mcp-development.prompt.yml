@@ -3,6 +3,7 @@ description: Directs GitHub agents on implementing MCP Check changes with docs a
 model: openai/gpt-5
 modelParameters:
   temperature: 0.25
+  max_completion_tokens: 2000
 messages:
   - role: system
     content: |
