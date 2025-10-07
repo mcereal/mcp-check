@@ -1,6 +1,6 @@
 name: MCP Check Verification Assistant
 description: Helps GitHub agents review MCP Check changes for quality, testing, and documentation
-model: openai/gpt-4o-mini
+model: openai/gpt-5
 modelParameters:
   temperature: 0.15
 messages:

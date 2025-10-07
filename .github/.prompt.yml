@@ -1,6 +1,6 @@
 name: MCP Check Repo Bootstrap
 description: Bootstraps GitHub agents with MCP Check domain context and response structure
-model: openai/gpt-4o-mini
+model: openai/gpt-5
 modelParameters:
   temperature: 0.2
 messages:

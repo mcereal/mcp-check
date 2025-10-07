@@ -1,6 +1,6 @@
 name: MCP Check Architecture Planner
 description: Guides GitHub agents to propose architecture or roadmap-aligned plans for MCP Check
-model: openai/gpt-4o-mini
+model: openai/gpt-5
 modelParameters:
   temperature: 0.2
 messages:
