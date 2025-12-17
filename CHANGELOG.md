@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/mcereal/mcp-check/compare/v1.0.2...v1.0.3) (2025-12-17)
+
+
+### Bug Fixes
+
+* typos and missing e2e tests and example server ([4e8a170](https://github.com/mcereal/mcp-check/commit/4e8a170e8d64d1d3380208a1e11faa8acc7c8e31))
+
 ## [1.0.2](https://github.com/mcereal/mcp-check/compare/v1.0.1...v1.0.2) (2025-12-17)
 
 
