@@ -2,7 +2,12 @@
  * Network chaos plugin - simulates network-level disruptions
  */
 
-import { ChaosPlugin, ChaosContext, NetworkChaosConfig } from '../types/chaos';
+import {
+  ChaosPlugin,
+  ChaosContext,
+  NetworkChaosConfig,
+  PluginSendResult,
+} from '../types/chaos';
 import { MCPPseudoRandom } from './random';
 
 /**
@@ -39,10 +44,13 @@ export class NetworkChaosPlugin implements ChaosPlugin {
     });
   }
 
-  async beforeSend(message: any): Promise<any> {
+  async beforeSend(message: any): Promise<PluginSendResult> {
     if (!this.context || !this.shouldApplyChaos()) {
-      return message;
+      return { message };
     }
+
+    const duplicates: Array<{ message: any; delayMs: number }> = [];
+    let modifiedMessage = message;
 
     // Simulate network delay
     if (this.config.delayMs) {
@@ -68,20 +76,13 @@ export class NetworkChaosPlugin implements ChaosPlugin {
       this.config.duplicateProbability &&
       this.random.nextBoolean(this.config.duplicateProbability)
     ) {
-      this.context.logger.debug('Network chaos: duplicating message');
-      // Schedule duplicate message after delay
-      setTimeout(async () => {
-        try {
-          const duplicateDelay = this.random.nextInt(10, 100);
-          await this.sleep(duplicateDelay);
-          // Would need transport reference to actually send duplicate
-          this.context!.logger.debug(
-            'Network chaos: would send duplicate message',
-          );
-        } catch (error) {
-          // Ignore errors in duplicate sending
-        }
-      }, 0);
+      const duplicateDelay = this.random.nextInt(10, 100);
+      this.context.logger.debug(
+        `Network chaos: scheduling duplicate message with ${duplicateDelay}ms delay`,
+      );
+      // Clone the message to avoid reference issues
+      const duplicateMessage = JSON.parse(JSON.stringify(message));
+      duplicates.push({ message: duplicateMessage, delayMs: duplicateDelay });
     }
 
     // Simulate message corruption
@@ -90,10 +91,13 @@ export class NetworkChaosPlugin implements ChaosPlugin {
       this.random.nextBoolean(this.config.corruptProbability)
     ) {
       this.context.logger.debug('Network chaos: corrupting message');
-      return this.corruptMessage(message);
+      modifiedMessage = this.corruptMessage(modifiedMessage);
     }
 
-    return message;
+    return {
+      message: modifiedMessage,
+      duplicates: duplicates.length > 0 ? duplicates : undefined,
+    };
   }
 
   async afterReceive(message: any): Promise<any> {

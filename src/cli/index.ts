@@ -16,8 +16,12 @@ import { HandshakeTestSuite } from '../suites/handshake';
 import { ToolDiscoveryTestSuite } from '../suites/tool-discovery';
 import { ToolInvocationTestSuite } from '../suites/tool-invocation';
 import { StreamingTestSuite } from '../suites/streaming';
+import { TimeoutTestSuite } from '../suites/timeout';
+import { LargePayloadTestSuite } from '../suites/large-payload';
 import { createLogger } from '../core/logger';
 import { FileFixtureManager } from '../core/fixture-manager';
+import { runWizard } from './wizard';
+import * as fs from 'fs';
 
 // Load package.json to get version
 const packageJson = require('../../package.json');
@@ -81,18 +85,48 @@ export async function runCLI(): Promise<void> {
   // Init command
   program
     .command('init')
-    .description('Create a default configuration file')
+    .description('Create a configuration file')
     .option(
       '-o, --output <path>',
       'Output path for config file',
       'mcp-check.config.json',
     )
+    .option('-i, --interactive', 'Run interactive configuration wizard')
     .action(async (options) => {
       try {
-        await createDefaultConfig(options.output);
-        console.log(
-          chalk.green(`Created configuration file: ${options.output}`),
-        );
+        if (options.interactive) {
+          // Run interactive wizard
+          const config = await runWizard({ output: options.output });
+
+          // Write the config file
+          fs.writeFileSync(
+            options.output,
+            JSON.stringify(config, null, 2),
+            'utf-8',
+          );
+
+          console.log(
+            chalk.green(`\n✅ Created configuration file: ${options.output}`),
+          );
+          console.log(
+            chalk.gray(
+              '\nRun "mcp-check test --config ' +
+                options.output +
+                '" to start testing.',
+            ),
+          );
+        } else {
+          // Create default config
+          await createDefaultConfig(options.output);
+          console.log(
+            chalk.green(`Created configuration file: ${options.output}`),
+          );
+          console.log(
+            chalk.gray(
+              '\nTip: Run "mcp-check init --interactive" for a guided setup.',
+            ),
+          );
+        }
       } catch (error) {
         console.error(chalk.red('Error creating config:'), error.message);
         process.exit(1);
@@ -407,6 +441,8 @@ async function runTests(options: any): Promise<void> {
     new ToolDiscoveryTestSuite(),
     new ToolInvocationTestSuite(),
     new StreamingTestSuite(),
+    new TimeoutTestSuite(),
+    new LargePayloadTestSuite(),
   ]);
 
   // Set up event listeners

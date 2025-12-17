@@ -1,0 +1,175 @@
+name: 'MCP Check'
+description: 'Run conformance tests against your MCP server'
+author: 'Michael Curtis'
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  config:
+    description: 'Path to mcp-check configuration file'
+    required: false
+    default: 'mcp-check.config.json'
+  suites:
+    description: 'Comma-separated list of test suites to run (default: all)'
+    required: false
+  output-dir:
+    description: 'Directory for test reports'
+    required: false
+    default: './mcp-check-reports'
+  formats:
+    description: 'Output formats (json,html,junit,badge)'
+    required: false
+    default: 'json,junit'
+  chaos-enabled:
+    description: 'Enable chaos engineering tests'
+    required: false
+    default: 'false'
+  chaos-intensity:
+    description: 'Chaos intensity level (low, medium, high, extreme)'
+    required: false
+    default: 'low'
+  fail-on-warning:
+    description: 'Fail the action if there are warnings'
+    required: false
+    default: 'false'
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '22'
+
+outputs:
+  passed:
+    description: 'Number of tests passed'
+    value: ${{ steps.run-tests.outputs.passed }}
+  failed:
+    description: 'Number of tests failed'
+    value: ${{ steps.run-tests.outputs.failed }}
+  total:
+    description: 'Total number of tests'
+    value: ${{ steps.run-tests.outputs.total }}
+  success:
+    description: 'Whether all tests passed'
+    value: ${{ steps.run-tests.outputs.success }}
+  report-path:
+    description: 'Path to the JSON report'
+    value: ${{ steps.run-tests.outputs.report-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install mcp-check
+      shell: bash
+      run: npm install -g @mcereal/mcp-check
+
+    - name: Create output directory
+      shell: bash
+      run: mkdir -p ${{ inputs.output-dir }}
+
+    - name: Run MCP Check
+      id: run-tests
+      shell: bash
+      run: |
+        # Build command
+        CMD="mcp-check test"
+
+        if [ -f "${{ inputs.config }}" ]; then
+          CMD="$CMD --config ${{ inputs.config }}"
+        fi
+
+        if [ -n "${{ inputs.suites }}" ]; then
+          CMD="$CMD --suites ${{ inputs.suites }}"
+        fi
+
+        CMD="$CMD --output-dir ${{ inputs.output-dir }}"
+        CMD="$CMD --format ${{ inputs.formats }}"
+
+        if [ "${{ inputs.chaos-enabled }}" = "true" ]; then
+          CMD="$CMD --chaos-intensity ${{ inputs.chaos-intensity }}"
+        fi
+
+        if [ "${{ inputs.fail-on-warning }}" = "true" ]; then
+          CMD="$CMD --strict"
+        fi
+
+        echo "Running: $CMD"
+
+        # Run tests and capture output
+        set +e
+        $CMD > test-output.txt 2>&1
+        EXIT_CODE=$?
+        set -e
+
+        cat test-output.txt
+
+        # Parse results from JSON report
+        REPORT_PATH="${{ inputs.output-dir }}/results.json"
+        if [ -f "$REPORT_PATH" ]; then
+          PASSED=$(jq '.summary.passed' "$REPORT_PATH")
+          FAILED=$(jq '.summary.failed' "$REPORT_PATH")
+          TOTAL=$(jq '.summary.total' "$REPORT_PATH")
+
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "report-path=$REPORT_PATH" >> $GITHUB_OUTPUT
+
+          if [ "$FAILED" = "0" ]; then
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "passed=0" >> $GITHUB_OUTPUT
+          echo "failed=0" >> $GITHUB_OUTPUT
+          echo "total=0" >> $GITHUB_OUTPUT
+          echo "success=false" >> $GITHUB_OUTPUT
+          echo "report-path=" >> $GITHUB_OUTPUT
+        fi
+
+        exit $EXIT_CODE
+
+    - name: Upload test reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: mcp-check-reports
+        path: ${{ inputs.output-dir }}
+        retention-days: 30
+
+    - name: Add summary
+      if: always()
+      shell: bash
+      run: |
+        echo "## MCP Check Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        REPORT_PATH="${{ inputs.output-dir }}/results.json"
+        if [ -f "$REPORT_PATH" ]; then
+          PASSED=$(jq '.summary.passed' "$REPORT_PATH")
+          FAILED=$(jq '.summary.failed' "$REPORT_PATH")
+          TOTAL=$(jq '.summary.total' "$REPORT_PATH")
+          WARNINGS=$(jq '.summary.warnings' "$REPORT_PATH")
+
+          if [ "$FAILED" = "0" ]; then
+            echo ":white_check_mark: **All tests passed!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo ":x: **Some tests failed**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Passed | $PASSED |" >> $GITHUB_STEP_SUMMARY
+          echo "| Failed | $FAILED |" >> $GITHUB_STEP_SUMMARY
+          echo "| Warnings | $WARNINGS |" >> $GITHUB_STEP_SUMMARY
+          echo "| Total | $TOTAL |" >> $GITHUB_STEP_SUMMARY
+        else
+          echo ":warning: **Could not find test results**" >> $GITHUB_STEP_SUMMARY
+        fi

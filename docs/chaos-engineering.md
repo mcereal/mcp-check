@@ -34,7 +34,7 @@ Add chaos configuration to your `mcp-check.config.json`:
       "injectAbortProbability": 0.005,
       "malformedJsonProbability": 0.001,
       "unexpectedMessageProbability": 0.01,
-      "invalidSchemaoProbability": 0.005
+      "invalidSchemaProbability": 0.005
     },
     "stream": {
       "chunkJitterMs": [0, 50],
@@ -105,7 +105,7 @@ Injects MCP protocol violations:
     "injectAbortProbability": 0.02,        // Connection aborts
     "malformedJsonProbability": 0.01,      // Invalid JSON
     "unexpectedMessageProbability": 0.03,  // Wrong message types
-    "invalidSchemaoProbability": 0.02      // Schema violations
+    "invalidSchemaProbability": 0.02       // Schema violations
   }
 }
 ```

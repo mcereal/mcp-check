@@ -7,6 +7,8 @@ import {
   ChaosPlugin,
   ChaosConfig,
   ChaosContext,
+  ChaosResult,
+  PluginSendResult,
   PseudoRandom,
 } from '../types/chaos';
 import { Transport } from '../types/transport';
@@ -85,18 +87,34 @@ export class DefaultChaosController implements ChaosController {
     }
   }
 
-  async applySendChaos(message: any): Promise<any> {
+  async applySendChaos(message: any): Promise<ChaosResult> {
     if (!this.enabled || !this.context) {
-      return message;
+      return { message };
     }
 
     let modifiedMessage = message;
+    const allDuplicates: Array<{ message: any; delayMs: number }> = [];
 
     // Apply chaos from each enabled plugin
     for (const plugin of this.plugins) {
       if (plugin.enabled && plugin.beforeSend) {
         try {
-          modifiedMessage = await plugin.beforeSend(modifiedMessage);
+          const result = await plugin.beforeSend(modifiedMessage);
+
+          // Check if result is a PluginSendResult with duplicates
+          if (this.isPluginSendResult(result)) {
+            modifiedMessage = result.message;
+            if (result.duplicates) {
+              allDuplicates.push(...result.duplicates);
+            }
+          } else {
+            modifiedMessage = result;
+          }
+
+          // If message was dropped, stop processing
+          if (modifiedMessage === null) {
+            break;
+          }
         } catch (error) {
           this.context.logger.warn(
             `Chaos plugin ${plugin.name} failed on beforeSend`,
@@ -106,7 +124,22 @@ export class DefaultChaosController implements ChaosController {
       }
     }
 
-    return modifiedMessage;
+    return {
+      message: modifiedMessage,
+      duplicates: allDuplicates.length > 0 ? allDuplicates : undefined,
+    };
+  }
+
+  /**
+   * Type guard to check if result is a PluginSendResult
+   */
+  private isPluginSendResult(result: any): result is PluginSendResult {
+    return (
+      result !== null &&
+      typeof result === 'object' &&
+      'message' in result &&
+      (result.duplicates === undefined || Array.isArray(result.duplicates))
+    );
   }
 
   async applyReceiveChaos(message: any): Promise<any> {

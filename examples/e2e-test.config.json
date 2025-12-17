@@ -1,0 +1,65 @@
+{
+  "$schema": "../schemas/mcp-check.config.schema.json",
+  "target": {
+    "type": "stdio",
+    "command": "node",
+    "args": ["examples/servers/test-server/dist/server.js"],
+    "env": {}
+  },
+  "expectations": {
+    "minProtocolVersion": "2024-11-05",
+    "capabilities": ["tools", "resources"],
+    "tools": [
+      {
+        "name": "echo",
+        "required": true,
+        "description": "Echoes back the provided message"
+      },
+      {
+        "name": "add",
+        "required": true,
+        "description": "Adds two numbers together"
+      },
+      {
+        "name": "slow_operation",
+        "required": false,
+        "description": "Simulates a slow operation"
+      },
+      {
+        "name": "error_tool",
+        "required": false,
+        "description": "Throws an error"
+      },
+      {
+        "name": "large_payload",
+        "required": false,
+        "description": "Returns a large payload"
+      }
+    ],
+    "resources": [
+      {
+        "uri": "test://docs/readme",
+        "name": "README"
+      }
+    ]
+  },
+  "suites": ["handshake", "tool-discovery", "tool-invocation", "streaming"],
+  "timeouts": {
+    "connectMs": 10000,
+    "invokeMs": 30000,
+    "shutdownMs": 5000,
+    "streamMs": 60000
+  },
+  "chaos": {
+    "enable": false
+  },
+  "reporting": {
+    "formats": ["json"],
+    "outputDir": "./test-reports",
+    "includeFixtures": false
+  },
+  "parallelism": {
+    "maxConcurrentTests": 1,
+    "maxConcurrentConnections": 1
+  }
+}

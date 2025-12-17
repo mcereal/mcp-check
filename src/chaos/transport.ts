@@ -67,21 +67,49 @@ export class ChaosTransport implements Transport {
   async send(message: any): Promise<void> {
     try {
       // Apply send chaos
-      const modifiedMessage =
-        await this.chaosController.applySendChaos(message);
+      const chaosResult = await this.chaosController.applySendChaos(message);
 
       // If chaos returns null, simulate dropped message
-      if (modifiedMessage === null) {
+      if (chaosResult.message === null) {
         this.logger.debug('Chaos: message dropped, not sending');
         return;
       }
 
-      return this.transport.send(modifiedMessage);
+      // Send the original (possibly modified) message
+      await this.transport.send(chaosResult.message);
+
+      // Schedule any duplicates to be sent after their delays
+      if (chaosResult.duplicates && chaosResult.duplicates.length > 0) {
+        for (const duplicate of chaosResult.duplicates) {
+          this.scheduleDuplicate(duplicate.message, duplicate.delayMs);
+        }
+      }
     } catch (error) {
       // Chaos might inject errors
       this.logger.debug('Chaos: error during send', { error });
       throw error;
     }
+  }
+
+  /**
+   * Schedule a duplicate message to be sent after a delay
+   */
+  private scheduleDuplicate(message: any, delayMs: number): void {
+    setTimeout(async () => {
+      try {
+        if (this.transport.state === 'connected') {
+          this.logger.debug('Chaos: sending duplicate message', { delayMs });
+          await this.transport.send(message);
+        } else {
+          this.logger.debug(
+            'Chaos: skipping duplicate, transport not connected',
+          );
+        }
+      } catch (error) {
+        this.logger.debug('Chaos: error sending duplicate message', { error });
+        // Ignore errors in duplicate sending - this is chaos after all
+      }
+    }, delayMs);
   }
 
   async waitForMessage(

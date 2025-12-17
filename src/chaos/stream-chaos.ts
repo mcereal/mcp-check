@@ -2,7 +2,12 @@
  * Stream chaos plugin - simulates streaming-level disruptions
  */
 
-import { ChaosPlugin, ChaosContext, StreamChaosConfig } from '../types/chaos';
+import {
+  ChaosPlugin,
+  ChaosContext,
+  StreamChaosConfig,
+  PluginSendResult,
+} from '../types/chaos';
 import { MCPPseudoRandom } from './random';
 
 /**
@@ -39,10 +44,13 @@ export class StreamChaosPlugin implements ChaosPlugin {
     });
   }
 
-  async beforeSend(message: any): Promise<any> {
+  async beforeSend(message: any): Promise<PluginSendResult> {
     if (!this.context || !this.shouldApplyChaos()) {
-      return message;
+      return { message };
     }
+
+    const duplicates: Array<{ message: any; delayMs: number }> = [];
+    let modifiedMessage = message;
 
     // Apply chunk jitter (delay)
     if (this.config.chunkJitterMs) {
@@ -60,7 +68,7 @@ export class StreamChaosPlugin implements ChaosPlugin {
       this.random.nextBoolean(this.config.splitChunkProbability)
     ) {
       this.context.logger.debug('Stream chaos: splitting message into chunks');
-      return this.splitMessage(message);
+      return { message: this.splitMessage(message) };
     }
 
     // Duplicate chunks
@@ -68,20 +76,13 @@ export class StreamChaosPlugin implements ChaosPlugin {
       this.config.duplicateChunkProbability &&
       this.random.nextBoolean(this.config.duplicateChunkProbability)
     ) {
-      this.context.logger.debug('Stream chaos: duplicating chunk');
-      // Schedule duplicate after delay
-      setTimeout(async () => {
-        try {
-          const delay = this.random.nextInt(10, 100);
-          await this.sleep(delay);
-          this.context!.logger.debug(
-            'Stream chaos: would send duplicate chunk',
-          );
-          // In real implementation, would send duplicate through transport
-        } catch (error) {
-          // Ignore errors in duplicate sending
-        }
-      }, 0);
+      const duplicateDelay = this.random.nextInt(10, 100);
+      this.context.logger.debug(
+        `Stream chaos: scheduling duplicate chunk with ${duplicateDelay}ms delay`,
+      );
+      // Clone the message to avoid reference issues
+      const duplicateMessage = JSON.parse(JSON.stringify(message));
+      duplicates.push({ message: duplicateMessage, delayMs: duplicateDelay });
     }
 
     // Reorder messages
@@ -99,14 +100,24 @@ export class StreamChaosPlugin implements ChaosPlugin {
         const index = this.random.nextInt(0, this.messageBuffer.length);
         const buffered = this.messageBuffer.splice(index, 1)[0];
         this.context.logger.debug('Stream chaos: releasing reordered message');
-        return buffered.message;
+        return {
+          message: buffered.message,
+          duplicates: duplicates.length > 0 ? duplicates : undefined,
+        };
       }
 
       // Return null to buffer this message (simulate reordering)
-      return null;
+      // Still return any scheduled duplicates
+      return {
+        message: null,
+        duplicates: duplicates.length > 0 ? duplicates : undefined,
+      };
     }
 
-    return message;
+    return {
+      message: modifiedMessage,
+      duplicates: duplicates.length > 0 ? duplicates : undefined,
+    };
   }
 
   async afterReceive(message: any): Promise<any> {

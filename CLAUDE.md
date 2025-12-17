@@ -26,7 +26,8 @@ npm run clean           # Remove dist/ directory
 
 # CLI (after build)
 ./bin/mcp-check.js test --config <config-file>
-./bin/mcp-check.js init
+./bin/mcp-check.js init                          # Create default config
+./bin/mcp-check.js init --interactive            # Interactive config wizard
 ./bin/mcp-check.js validate --config <config-file>
 ./bin/mcp-check.js list-suites
 ./bin/mcp-check.js fixtures list
@@ -58,6 +59,8 @@ The system uses factory patterns for transports and chaos injection, observer pa
 - `ToolDiscoveryTestSuite` - Tool listing and schema validation
 - `ToolInvocationTestSuite` - Tool execution and error handling
 - `StreamingTestSuite` - Concurrent requests and message ordering
+- `TimeoutTestSuite` - Timeout behavior and slow operation handling
+- `LargePayloadTestSuite` - Large data transfer and memory stability
 
 **Chaos** (`src/chaos/`):
 - `DefaultChaosController` - Manages plugins with deterministic PRNG (seeded)

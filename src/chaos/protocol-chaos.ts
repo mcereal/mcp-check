@@ -22,7 +22,7 @@ export class ProtocolChaosPlugin implements ChaosPlugin {
       injectAbortProbability: 0.005,
       malformedJsonProbability: 0.001,
       unexpectedMessageProbability: 0.01,
-      invalidSchemaoProbability: 0.005,
+      invalidSchemaProbability: 0.005,
       ...config,
     };
     this.random = new MCPPseudoRandom();
@@ -71,8 +71,8 @@ export class ProtocolChaosPlugin implements ChaosPlugin {
 
     // Inject schema violations
     if (
-      this.config.invalidSchemaoProbability &&
-      this.random.nextBoolean(this.config.invalidSchemaoProbability)
+      this.config.invalidSchemaProbability &&
+      this.random.nextBoolean(this.config.invalidSchemaProbability)
     ) {
       this.context.logger.debug('Protocol chaos: injecting schema violation');
       return this.createSchemaViolation(message);

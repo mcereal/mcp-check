@@ -12,10 +12,6 @@ MCP Check is a conformance and reliability harness for Model Context Protocol (M
 - **Comprehensive reporting** – JSON, HTML, JUnit, and badge outputs plus fixture capture and optional telemetry export.
 - **Extensible by design** – plug in custom suites, reporters, transports, or chaos plugins without forking the core.
 
-## Project Status
-
-This repository is pre-release software. APIs may change as we expand coverage and tighten the developer experience. Unit test suites (including CLI and tool invocation) run locally today; broader integration coverage is being re-imagined around mock transports per the [feature roadmap](docs/roadmap.md).
-
 ## Getting Started
 
 ```bash
@@ -56,12 +52,12 @@ npx ts-node src/cli/index.ts test --config examples/basic-stdio.config.json
      "target": {
        "type": "stdio",
        "command": "node",
-       "args": ["./examples/echo-server.js"]
+       "args": ["./examples/echo-server.js"],
      },
      "reporting": {
        "formats": ["json", "html", "junit"],
-       "outputDir": "./reports"
-     }
+       "outputDir": "./reports",
+     },
    }
    ```
 

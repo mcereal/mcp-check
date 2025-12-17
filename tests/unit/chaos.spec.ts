@@ -121,7 +121,9 @@ describe('Chaos Engineering', () => {
       const result = await controller.applySendChaos(originalMessage);
 
       expect(mockPlugin.beforeSend).toHaveBeenCalledWith(originalMessage);
-      expect(result).toEqual({ test: 'message', chaos: true });
+      // Result is now a ChaosResult object
+      expect(result.message).toEqual({ test: 'message', chaos: true });
+      expect(result.duplicates).toBeUndefined();
     });
 
     it('should handle plugin errors gracefully', async () => {
@@ -149,8 +151,8 @@ describe('Chaos Engineering', () => {
       const originalMessage = { test: 'message' };
       const result = await controller.applySendChaos(originalMessage);
 
-      // Should return original message when plugin fails
-      expect(result).toEqual(originalMessage);
+      // Should return original message when plugin fails (wrapped in ChaosResult)
+      expect(result.message).toEqual(originalMessage);
     });
   });
 
@@ -190,8 +192,32 @@ describe('Chaos Engineering', () => {
       const elapsed = endTime - startTime;
 
       // Should have some delay (though we can't guarantee exact timing in tests)
-      expect(result).toEqual(message);
+      // Result is now a PluginSendResult object
+      expect(result.message).toEqual(message);
       // Note: In a real test environment, timing tests can be flaky
+    });
+
+    it('should schedule message duplicates when duplication is enabled', async () => {
+      // Create plugin with high duplication probability for testing
+      const duplicationPlugin = new NetworkChaosPlugin({
+        delayMs: [0, 0], // No delay for faster tests
+        dropProbability: 0,
+        duplicateProbability: 1.0, // Always duplicate
+        corruptProbability: 0,
+      });
+
+      await duplicationPlugin.initialize(context);
+
+      const message = { test: 'duplication' };
+      const result = await duplicationPlugin.beforeSend(message);
+
+      // Result should contain the original message and scheduled duplicates
+      expect(result.message).toEqual(message);
+      expect(result.duplicates).toBeDefined();
+      expect(result.duplicates!.length).toBe(1);
+      expect(result.duplicates![0].message).toEqual(message);
+      expect(result.duplicates![0].delayMs).toBeGreaterThanOrEqual(10);
+      expect(result.duplicates![0].delayMs).toBeLessThan(100);
     });
   });
 

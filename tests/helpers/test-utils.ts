@@ -60,7 +60,7 @@ export function createTestConfig(
         injectAbortProbability: 0,
         malformedJsonProbability: 0,
         unexpectedMessageProbability: 0,
-        invalidSchemaoProbability: 0,
+        invalidSchemaProbability: 0,
       },
       timing: {
         clockSkewMs: [0, 50],

@@ -83,7 +83,7 @@ export class ChaosFactory {
         injectAbortProbability: 0.02,
         malformedJsonProbability: 0.01,
         unexpectedMessageProbability: 0.03,
-        invalidSchemaoProbability: 0.02,
+        invalidSchemaProbability: 0.02,
       },
       stream: {
         chunkJitterMs: [0, 100],
@@ -133,7 +133,7 @@ export class ChaosFactory {
         injectAbortProbability: 0.05,
         malformedJsonProbability: 0.03,
         unexpectedMessageProbability: 0.08,
-        invalidSchemaoProbability: 0.05,
+        invalidSchemaProbability: 0.05,
       },
     };
 
@@ -201,7 +201,7 @@ export class ChaosFactory {
             injectAbortProbability: 0.1,
             malformedJsonProbability: 0.05,
             unexpectedMessageProbability: 0.15,
-            invalidSchemaoProbability: 0.1,
+            invalidSchemaProbability: 0.1,
           },
           stream: {
             chunkJitterMs: [0, 500],

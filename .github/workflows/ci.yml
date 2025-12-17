@@ -34,6 +34,12 @@ jobs:
       - name: Linting
         run: npm run lint
 
+      - name: Build test server for E2E tests
+        run: |
+          cd examples/servers/test-server
+          npm install
+          npm run build
+
       - name: Tests
         run: npm run test:coverage
 

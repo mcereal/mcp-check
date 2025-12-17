@@ -13,6 +13,16 @@ export interface ChaosContext {
 }
 
 /**
+ * Result from a plugin's beforeSend method
+ */
+export interface PluginSendResult {
+  /** The modified message (null if dropped) */
+  message: any | null;
+  /** Duplicate messages to send with delays */
+  duplicates?: Array<{ message: any; delayMs: number }>;
+}
+
+/**
  * Chaos plugin interface
  */
 export interface ChaosPlugin {
@@ -27,8 +37,9 @@ export interface ChaosPlugin {
 
   /**
    * Inject chaos before message send
+   * Can return either a modified message (any) or a PluginSendResult with duplicates
    */
-  beforeSend?(message: any): Promise<any>;
+  beforeSend?(message: any): Promise<any | PluginSendResult>;
 
   /**
    * Inject chaos after message receive
@@ -74,7 +85,7 @@ export interface ProtocolChaosConfig {
   injectAbortProbability?: number;
   malformedJsonProbability?: number;
   unexpectedMessageProbability?: number;
-  invalidSchemaoProbability?: number;
+  invalidSchemaProbability?: number;
 }
 
 /**
@@ -97,6 +108,16 @@ export interface ChaosConfig {
   protocol?: ProtocolChaosConfig;
   timing?: TimingChaosConfig;
   intensity?: number; // 0.0 to 1.0
+}
+
+/**
+ * Result of chaos application, may include duplicates to send
+ */
+export interface ChaosResult {
+  /** The modified message (null if dropped) */
+  message: any | null;
+  /** Duplicate messages to send with delays */
+  duplicates?: Array<{ message: any; delayMs: number }>;
 }
 
 /**
@@ -128,8 +149,9 @@ export interface ChaosController {
 
   /**
    * Apply chaos to outgoing message
+   * @returns ChaosResult with the modified message and any duplicates to send
    */
-  applySendChaos(message: any): Promise<any>;
+  applySendChaos(message: any): Promise<ChaosResult>;
 
   /**
    * Apply chaos to incoming message
