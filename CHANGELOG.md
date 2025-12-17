@@ -1,3 +1,10 @@
+## [1.0.4](https://github.com/mcereal/mcp-check/compare/v1.0.3...v1.0.4) (2025-12-17)
+
+
+### Bug Fixes
+
+* tests only in ci not release ([72ebc48](https://github.com/mcereal/mcp-check/commit/72ebc48b6f7b38e1add75a3fb6651f0d20c9c361))
+
 ## [1.0.3](https://github.com/mcereal/mcp-check/compare/v1.0.2...v1.0.3) (2025-12-17)
 
 
