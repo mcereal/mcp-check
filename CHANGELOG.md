@@ -1,3 +1,10 @@
+## [1.0.6](https://github.com/mcereal/mcp-check/compare/v1.0.5...v1.0.6) (2025-12-17)
+
+
+### Bug Fixes
+
+* telemetry bug, dead script, tcp transport, etc. ([e56e7e8](https://github.com/mcereal/mcp-check/commit/e56e7e80cfaf2c6c1ba1328d148d29f475684f4c))
+
 ## [1.0.5](https://github.com/mcereal/mcp-check/compare/v1.0.4...v1.0.5) (2025-12-17)
 
 
