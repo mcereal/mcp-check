@@ -94,9 +94,10 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
         }
 
         // Test a few discovered tools that aren't in expectations
+        const maxUnexpectedTools = context.config.testParameters?.maxUnexpectedTools ?? 3;
         const unexpectedTools = tools
           .filter((t) => !expectedTools.some((et) => et.name === t.name))
-          .slice(0, 3); // Test up to 3 unexpected tools
+          .slice(0, maxUnexpectedTools);
 
         for (const tool of unexpectedTools) {
           await this.testTool(client, tool, undefined, cases, context);
@@ -432,39 +433,257 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
   private generateValueForProperty(prop: any): any {
     switch (prop.type) {
       case 'string':
-        return 'test';
+        return this.generateStringValue(prop);
       case 'number':
-        return 42;
+        return this.generateNumberValue(prop);
       case 'integer':
-        return 42;
+        return this.generateIntegerValue(prop);
       case 'boolean':
-        return true;
+        return prop.default !== undefined ? prop.default : true;
       case 'array':
-        return [];
+        return this.generateArrayValue(prop);
       case 'object':
-        return {};
+        return this.generateObjectValue(prop);
       default:
+        // Handle union types or unspecified type
+        if (prop.enum && prop.enum.length > 0) {
+          return prop.enum[0];
+        }
+        if (prop.const !== undefined) {
+          return prop.const;
+        }
         return 'test';
     }
+  }
+
+  private generateStringValue(prop: any): string {
+    // Use enum value if available
+    if (prop.enum && prop.enum.length > 0) {
+      return prop.enum[0];
+    }
+    // Use const if available
+    if (prop.const !== undefined) {
+      return String(prop.const);
+    }
+    // Use default if available
+    if (prop.default !== undefined) {
+      return String(prop.default);
+    }
+    // Generate value based on constraints
+    const minLength = prop.minLength ?? 0;
+    const maxLength = prop.maxLength ?? 100;
+    const targetLength = Math.max(minLength, Math.min(4, maxLength));
+
+    // Try to match pattern if specified
+    if (prop.pattern) {
+      return this.generateStringFromPattern(prop.pattern, targetLength);
+    }
+    // Generate based on format if specified
+    if (prop.format) {
+      return this.generateStringForFormat(prop.format);
+    }
+    // Generate string of appropriate length
+    return 'test'.repeat(Math.ceil(targetLength / 4)).substring(0, targetLength);
+  }
+
+  private generateStringFromPattern(pattern: string, targetLength: number): string {
+    // Try to generate a simple value that might match common patterns
+    // This is a best-effort approach since generating from regex is complex
+    const simplePatterns: Record<string, string> = {
+      '^[a-z]+$': 'test',
+      '^[A-Z]+$': 'TEST',
+      '^[a-zA-Z]+$': 'Test',
+      '^[0-9]+$': '12345',
+      '^\\d+$': '12345',
+      '^[a-zA-Z0-9]+$': 'Test123',
+      '^\\w+$': 'test_123',
+      '.*': 'test',
+    };
+    // Check if pattern matches any simple pattern
+    for (const [simplePattern, value] of Object.entries(simplePatterns)) {
+      if (pattern === simplePattern || pattern.includes(simplePattern.slice(1, -1))) {
+        const padded = value.repeat(Math.ceil(targetLength / value.length));
+        return padded.substring(0, Math.max(targetLength, value.length));
+      }
+    }
+    // Default fallback
+    return 'test'.repeat(Math.ceil(targetLength / 4)).substring(0, targetLength);
+  }
+
+  private generateStringForFormat(format: string): string {
+    const formatValues: Record<string, string> = {
+      email: 'test@example.com',
+      uri: 'https://example.com/test',
+      url: 'https://example.com/test',
+      'uri-reference': '/test/path',
+      'date-time': new Date().toISOString(),
+      date: new Date().toISOString().split('T')[0],
+      time: '12:00:00',
+      hostname: 'example.com',
+      ipv4: '127.0.0.1',
+      ipv6: '::1',
+      uuid: '550e8400-e29b-41d4-a716-446655440000',
+      'json-pointer': '/test/path',
+      regex: '.*',
+    };
+    return formatValues[format] ?? 'test';
+  }
+
+  private generateNumberValue(prop: any): number {
+    if (prop.enum && prop.enum.length > 0) {
+      return prop.enum[0];
+    }
+    if (prop.const !== undefined) {
+      return prop.const;
+    }
+    if (prop.default !== undefined) {
+      return prop.default;
+    }
+    const min = prop.minimum ?? prop.exclusiveMinimum ?? 0;
+    const max = prop.maximum ?? prop.exclusiveMaximum ?? 100;
+    const exclusiveMin = prop.exclusiveMinimum !== undefined;
+    const exclusiveMax = prop.exclusiveMaximum !== undefined;
+
+    let value = (min + max) / 2;
+    if (exclusiveMin && value <= min) value = min + 0.1;
+    if (exclusiveMax && value >= max) value = max - 0.1;
+
+    if (prop.multipleOf) {
+      value = Math.round(value / prop.multipleOf) * prop.multipleOf;
+    }
+    return value;
+  }
+
+  private generateIntegerValue(prop: any): number {
+    if (prop.enum && prop.enum.length > 0) {
+      return prop.enum[0];
+    }
+    if (prop.const !== undefined) {
+      return prop.const;
+    }
+    if (prop.default !== undefined) {
+      return prop.default;
+    }
+    const min = prop.minimum ?? prop.exclusiveMinimum ?? 0;
+    const max = prop.maximum ?? prop.exclusiveMaximum ?? 100;
+    const exclusiveMin = prop.exclusiveMinimum !== undefined;
+    const exclusiveMax = prop.exclusiveMaximum !== undefined;
+
+    let value = Math.floor((min + max) / 2);
+    if (exclusiveMin && value <= min) value = min + 1;
+    if (exclusiveMax && value >= max) value = max - 1;
+
+    if (prop.multipleOf) {
+      value = Math.round(value / prop.multipleOf) * prop.multipleOf;
+    }
+    return Math.floor(value);
+  }
+
+  private generateArrayValue(prop: any): any[] {
+    const minItems = prop.minItems ?? 0;
+    const maxItems = prop.maxItems ?? 3;
+    const targetItems = Math.max(minItems, Math.min(1, maxItems));
+
+    if (targetItems === 0) return [];
+
+    const itemSchema = prop.items || { type: 'string' };
+    const items: any[] = [];
+
+    for (let i = 0; i < targetItems; i++) {
+      items.push(this.generateValueForProperty(itemSchema));
+    }
+    return items;
+  }
+
+  private generateObjectValue(prop: any): Record<string, any> {
+    const obj: Record<string, any> = {};
+    if (prop.properties) {
+      const required = prop.required || [];
+      for (const [key, subProp] of Object.entries(prop.properties as any)) {
+        // Only include required properties to keep it minimal
+        if (required.includes(key)) {
+          obj[key] = this.generateValueForProperty(subProp);
+        }
+      }
+    }
+    return obj;
   }
 
   private generateInvalidValueForProperty(prop: any): any {
     switch (prop.type) {
       case 'string':
-        return 123; // number instead of string
+        return this.generateInvalidStringValue(prop);
       case 'number':
-        return 'not a number';
       case 'integer':
-        return 'not an integer';
+        return this.generateInvalidNumberValue(prop);
       case 'boolean':
-        return 'not a boolean';
+        return 'not_a_boolean'; // String instead of boolean
       case 'array':
-        return 'not an array';
+        return this.generateInvalidArrayValue(prop);
       case 'object':
-        return 'not an object';
+        return 'not_an_object'; // String instead of object
       default:
         return null;
     }
+  }
+
+  private generateInvalidStringValue(prop: any): any {
+    // If enum is defined, return value not in enum
+    if (prop.enum && prop.enum.length > 0) {
+      return 'INVALID_ENUM_VALUE_' + Date.now();
+    }
+    // Violate minLength
+    if (prop.minLength && prop.minLength > 0) {
+      return '';
+    }
+    // Violate maxLength
+    if (prop.maxLength) {
+      return 'x'.repeat(prop.maxLength + 10);
+    }
+    // Violate pattern
+    if (prop.pattern) {
+      return '!@#$%^&*()_+[]{}|;:,.<>?';
+    }
+    // Return wrong type
+    return 12345;
+  }
+
+  private generateInvalidNumberValue(prop: any): any {
+    // Violate minimum
+    if (prop.minimum !== undefined) {
+      return prop.minimum - 1000;
+    }
+    // Violate maximum
+    if (prop.maximum !== undefined) {
+      return prop.maximum + 1000;
+    }
+    // Violate exclusiveMinimum
+    if (prop.exclusiveMinimum !== undefined) {
+      return prop.exclusiveMinimum;
+    }
+    // Violate exclusiveMaximum
+    if (prop.exclusiveMaximum !== undefined) {
+      return prop.exclusiveMaximum;
+    }
+    // Return wrong type
+    return 'not_a_number';
+  }
+
+  private generateInvalidArrayValue(prop: any): any {
+    // Violate minItems
+    if (prop.minItems && prop.minItems > 0) {
+      return [];
+    }
+    // Violate maxItems
+    if (prop.maxItems !== undefined) {
+      const items: any[] = [];
+      for (let i = 0; i < prop.maxItems + 5; i++) {
+        items.push('item');
+      }
+      return items;
+    }
+    // Return wrong type
+    return 'not_an_array';
   }
 
   private validateToolResponse(response: any): boolean {

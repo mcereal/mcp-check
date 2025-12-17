@@ -245,8 +245,9 @@ export class TimeoutTestSuite implements TestSuitePlugin {
         };
       }
 
-      // Issue multiple concurrent requests
-      const concurrentCount = Math.min(3, tools.length);
+      // Issue multiple concurrent requests (configurable)
+      const maxConcurrent = context.config.testParameters?.concurrentRequestCount ?? 3;
+      const concurrentCount = Math.min(maxConcurrent, tools.length);
       const requests = tools.slice(0, concurrentCount).map((tool) =>
         client.callTool(tool.name, {}).catch((e) => ({
           error: e.message,
@@ -392,11 +393,13 @@ export class TimeoutTestSuite implements TestSuitePlugin {
         };
       }
 
-      // Make several requests and track response times
+      // Make several requests and track response times (configurable iterations)
+      const iterations = context.config.testParameters?.testIterations ?? 10;
+      const progressiveIterations = Math.min(iterations / 2, 5); // Use half of testIterations, max 5
       const responseTimes: number[] = [];
       const testTool = tools[0];
 
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < progressiveIterations; i++) {
         const reqStart = Date.now();
         try {
           await client.callTool(testTool.name, {});

@@ -184,7 +184,7 @@ export class StreamingTestSuite implements TestSuitePlugin {
     context: TestContext,
   ): Promise<void> {
     const startTime = Date.now();
-    const requestCount = 10;
+    const requestCount = context.config.testParameters?.rapidRequestCount ?? 10;
     const requests = [];
 
     // Get available tools

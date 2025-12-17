@@ -108,28 +108,103 @@ export class ProtocolChaosPlugin implements ChaosPlugin {
     return this.random.nextBoolean(0.05); // 5% base chance
   }
 
-  private createMalformedJson(message: any): any {
-    if (typeof message === 'object') {
-      // Create various types of malformed JSON
-      const malformations = [
-        () => ({ ...message, '': 'invalid_empty_key' }),
-        () => ({ ...message, [Symbol('invalid')]: 'symbol_key' }),
-        () => ({ ...message, circular: message }), // Circular reference
-        () => ({ ...message, undefined: undefined }),
-        () => ({ ...message, function: () => {} }),
-      ];
+  private createMalformedJson(message: any): string | object {
+    // Create actual malformed JSON that will fail parsing or violate JSON-RPC
+    const malformations = [
+      // Return a raw string that is invalid JSON (will cause parse errors on receiving end)
+      () => this.createTruncatedJson(message),
+      // Return JSON with invalid syntax
+      () => this.createSyntaxErrorJson(message),
+      // Return JSON with invalid UTF-8 sequences (as string marker)
+      () => this.createInvalidEncodingMarker(message),
+      // Return object with NaN/Infinity (invalid JSON values)
+      () => this.createInvalidJsonValues(message),
+      // Return JSON missing required JSON-RPC fields
+      () => this.createIncompleteJsonRpc(message),
+    ];
 
-      const malformation =
-        malformations[this.random.nextInt(0, malformations.length)];
-      try {
-        return malformation();
-      } catch (error) {
-        // If malformation fails, return original
-        return message;
-      }
+    const malformation = malformations[this.random.nextInt(0, malformations.length)];
+    try {
+      return malformation();
+    } catch (error) {
+      // If malformation fails, return original
+      return message;
     }
+  }
 
-    return message;
+  private createTruncatedJson(message: any): string {
+    // Create truncated JSON string that will fail to parse
+    const jsonStr = JSON.stringify(message);
+    const truncateAt = this.random.nextInt(1, Math.max(2, jsonStr.length - 5));
+    return jsonStr.substring(0, truncateAt);
+  }
+
+  private createSyntaxErrorJson(message: any): string {
+    // Create JSON with syntax errors
+    const syntaxErrors = [
+      () => {
+        // Missing closing brace
+        const json = JSON.stringify(message);
+        return json.replace(/}$/, '');
+      },
+      () => {
+        // Missing quotes around string value
+        const json = JSON.stringify(message);
+        return json.replace(/"([^"]+)"/g, (match, group, offset) => {
+          // Only unquote some strings randomly
+          if (this.random.nextBoolean(0.3)) {
+            return group;
+          }
+          return match;
+        });
+      },
+      () => {
+        // Double comma
+        const json = JSON.stringify(message);
+        return json.replace(',', ',,');
+      },
+      () => {
+        // Missing colon
+        const json = JSON.stringify(message);
+        return json.replace(':', '');
+      },
+      () => {
+        // Trailing comma (invalid in JSON)
+        const json = JSON.stringify(message);
+        return json.replace(/}$/, ',}');
+      },
+    ];
+    return syntaxErrors[this.random.nextInt(0, syntaxErrors.length)]();
+  }
+
+  private createInvalidEncodingMarker(message: any): object {
+    // Return object with a marker string containing invalid byte sequences
+    // These won't actually corrupt bytes but will indicate encoding issues
+    return {
+      ...message,
+      _chaosEncoding: '\uFFFD\uFFFE\uFFFF', // Invalid Unicode replacement chars
+      _corrupted: true,
+    };
+  }
+
+  private createInvalidJsonValues(message: any): object {
+    // JSON doesn't support NaN, Infinity, -Infinity, or undefined
+    // Return object that will serialize to null for these
+    const invalidValues = [NaN, Infinity, -Infinity];
+    const value = invalidValues[this.random.nextInt(0, invalidValues.length)];
+    return {
+      ...message,
+      _invalidValue: value,
+    };
+  }
+
+  private createIncompleteJsonRpc(message: any): object {
+    // Return JSON-RPC message missing required fields
+    const incomplete = JSON.parse(JSON.stringify(message));
+    const fieldsToRemove = ['jsonrpc', 'id', 'method', 'params'];
+    const fieldToRemove = fieldsToRemove[this.random.nextInt(0, fieldsToRemove.length)];
+    delete incomplete[fieldToRemove];
+    return incomplete;
   }
 
   private createUnexpectedMessage(message: any): any {

@@ -109,6 +109,26 @@ export interface TimeoutConfig {
 }
 
 /**
+ * Test parameters configuration - configurable limits for test suites
+ */
+export interface TestParametersConfig {
+  /** Maximum number of unexpected tools to test (default: 3) */
+  maxUnexpectedTools?: number;
+  /** Maximum number of resources to test in large-payload suite (default: 5) */
+  maxResourcesToTest?: number;
+  /** Number of rapid requests in streaming tests (default: 10) */
+  rapidRequestCount?: number;
+  /** Number of concurrent requests in timeout tests (default: 3) */
+  concurrentRequestCount?: number;
+  /** Number of iterations for progressive/memory tests (default: 10) */
+  testIterations?: number;
+  /** Payload sizes to test in bytes (default: [1024, 10240, 102400]) */
+  payloadSizes?: number[];
+  /** Memory growth threshold in MB before warning (default: 10) */
+  memoryGrowthThresholdMB?: number;
+}
+
+/**
  * Complete configuration interface
  */
 export interface CheckConfig {
@@ -120,6 +140,7 @@ export interface CheckConfig {
   chaos?: ChaosConfig;
   reporting?: ReportingConfig;
   parallelism?: ParallelismConfig;
+  testParameters?: TestParametersConfig;
 }
 
 /**

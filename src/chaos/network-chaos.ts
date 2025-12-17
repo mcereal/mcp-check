@@ -145,29 +145,165 @@ export class NetworkChaosPlugin implements ChaosPlugin {
   }
 
   private corruptMessage(message: any): any {
-    if (typeof message === 'string') {
-      // Corrupt random character in string
-      const chars = message.split('');
-      if (chars.length > 0) {
-        const index = this.random.nextInt(0, chars.length);
-        chars[index] = String.fromCharCode(this.random.nextInt(32, 127));
-        return chars.join('');
-      }
-    } else if (typeof message === 'object' && message !== null) {
-      // Corrupt object by modifying a random field
-      const corrupted = JSON.parse(JSON.stringify(message));
-      const keys = Object.keys(corrupted);
-      if (keys.length > 0) {
-        const key = keys[this.random.nextInt(0, keys.length)];
-        if (typeof corrupted[key] === 'string') {
-          corrupted[key] = corrupted[key] + '_CORRUPTED';
-        } else if (typeof corrupted[key] === 'number') {
-          corrupted[key] = corrupted[key] + this.random.nextInt(-100, 100);
-        }
-      }
-      return corrupted;
+    // Choose a corruption strategy
+    const strategies = [
+      () => this.corruptByteLevel(message),
+      () => this.corruptStructure(message),
+      () => this.corruptValues(message),
+      () => this.partiallyTruncate(message),
+    ];
+
+    const strategy = strategies[this.random.nextInt(0, strategies.length)];
+    try {
+      return strategy();
+    } catch (error) {
+      return message;
+    }
+  }
+
+  private corruptByteLevel(message: any): string {
+    // Convert to JSON string and corrupt at byte level
+    const jsonStr = typeof message === 'string' ? message : JSON.stringify(message);
+    const chars = jsonStr.split('');
+
+    if (chars.length === 0) return jsonStr;
+
+    // Corrupt 1-3 random positions
+    const corruptCount = this.random.nextInt(1, Math.min(4, chars.length));
+    for (let i = 0; i < corruptCount; i++) {
+      const index = this.random.nextInt(0, chars.length);
+      const corruptionTypes = [
+        // Replace with random ASCII
+        () => String.fromCharCode(this.random.nextInt(0, 128)),
+        // Replace with random high byte
+        () => String.fromCharCode(this.random.nextInt(128, 256)),
+        // Insert null byte
+        () => '\x00',
+        // Insert control character
+        () => String.fromCharCode(this.random.nextInt(1, 32)),
+        // Delete the character
+        () => '',
+        // Double the character
+        () => chars[index] + chars[index],
+      ];
+      const corruptionType = corruptionTypes[this.random.nextInt(0, corruptionTypes.length)];
+      chars[index] = corruptionType();
     }
 
-    return message;
+    return chars.join('');
+  }
+
+  private corruptStructure(message: any): any {
+    if (typeof message !== 'object' || message === null) {
+      return message;
+    }
+
+    const corrupted = JSON.parse(JSON.stringify(message));
+    const keys = Object.keys(corrupted);
+
+    if (keys.length === 0) return corrupted;
+
+    // Choose a structural corruption
+    const structuralCorruptions = [
+      // Delete a random key
+      () => {
+        const key = keys[this.random.nextInt(0, keys.length)];
+        delete corrupted[key];
+        return corrupted;
+      },
+      // Rename a key to corrupted name
+      () => {
+        const key = keys[this.random.nextInt(0, keys.length)];
+        const value = corrupted[key];
+        delete corrupted[key];
+        corrupted[key + '\x00corrupted'] = value;
+        return corrupted;
+      },
+      // Swap two values
+      () => {
+        if (keys.length >= 2) {
+          const key1 = keys[this.random.nextInt(0, keys.length)];
+          const key2 = keys[this.random.nextInt(0, keys.length)];
+          const temp = corrupted[key1];
+          corrupted[key1] = corrupted[key2];
+          corrupted[key2] = temp;
+        }
+        return corrupted;
+      },
+      // Nest the message incorrectly
+      () => {
+        const key = keys[this.random.nextInt(0, keys.length)];
+        corrupted[key] = { wrapped: corrupted[key], corrupted: true };
+        return corrupted;
+      },
+    ];
+
+    return structuralCorruptions[this.random.nextInt(0, structuralCorruptions.length)]();
+  }
+
+  private corruptValues(message: any): any {
+    if (typeof message !== 'object' || message === null) {
+      return message;
+    }
+
+    const corrupted = JSON.parse(JSON.stringify(message));
+    const keys = Object.keys(corrupted);
+
+    if (keys.length === 0) return corrupted;
+
+    const key = keys[this.random.nextInt(0, keys.length)];
+    const currentValue = corrupted[key];
+
+    // Type-changing corruptions
+    const valueCorruptions: Record<string, () => any> = {
+      string: () => {
+        const strategies = [
+          // Truncate
+          () => currentValue.substring(0, Math.max(0, currentValue.length - this.random.nextInt(1, 5))),
+          // Insert garbage
+          () => currentValue.slice(0, 2) + '\x00\x01\x02' + currentValue.slice(2),
+          // Change case and add symbols
+          () => currentValue.toUpperCase() + '!@#$%',
+          // Empty it
+          () => '',
+        ];
+        return strategies[this.random.nextInt(0, strategies.length)]();
+      },
+      number: () => {
+        const strategies = [
+          // Flip sign
+          () => -currentValue,
+          // Make huge
+          () => currentValue * 1e15,
+          // Make tiny
+          () => currentValue * 1e-15,
+          // Change to non-finite (will become null in JSON)
+          () => NaN,
+        ];
+        return strategies[this.random.nextInt(0, strategies.length)]();
+      },
+      boolean: () => !currentValue,
+      object: () => currentValue === null ? {} : null,
+    };
+
+    const valueType = typeof currentValue;
+    if (valueCorruptions[valueType]) {
+      corrupted[key] = valueCorruptions[valueType]();
+    } else {
+      // Replace with wrong type
+      corrupted[key] = { corrupted: true, originalType: valueType };
+    }
+
+    return corrupted;
+  }
+
+  private partiallyTruncate(message: any): string {
+    // Return truncated JSON that may or may not be parseable
+    const jsonStr = typeof message === 'string' ? message : JSON.stringify(message);
+    const truncatePoint = this.random.nextInt(
+      Math.floor(jsonStr.length * 0.5),
+      Math.floor(jsonStr.length * 0.9),
+    );
+    return jsonStr.substring(0, truncatePoint);
   }
 }

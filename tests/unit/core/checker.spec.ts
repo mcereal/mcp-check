@@ -52,6 +52,15 @@ describe('MCPChecker', () => {
       maxConcurrentTests: 1,
       maxConcurrentConnections: 1,
     },
+    testParameters: {
+      maxUnexpectedTools: 3,
+      maxResourcesToTest: 5,
+      rapidRequestCount: 10,
+      concurrentRequestCount: 3,
+      testIterations: 10,
+      payloadSizes: [1024, 10240, 102400],
+      memoryGrowthThresholdMB: 10,
+    },
     version: '1.0.0',
     environment: {
       platform: 'darwin',

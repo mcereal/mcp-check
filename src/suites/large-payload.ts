@@ -128,8 +128,8 @@ export class LargePayloadTestSuite implements TestSuitePlugin {
         };
       }
 
-      // Test with progressively larger payloads
-      const sizes = [1024, 10240, 102400]; // 1KB, 10KB, 100KB
+      // Test with progressively larger payloads (configurable)
+      const sizes = context.config.testParameters?.payloadSizes ?? [1024, 10240, 102400];
       const results: Array<{ size: number; success: boolean; timeMs: number }> =
         [];
 
@@ -416,9 +416,9 @@ export class LargePayloadTestSuite implements TestSuitePlugin {
       // Record initial memory usage
       const initialMemory = process.memoryUsage().heapUsed;
 
-      // Make multiple requests to test for memory leaks
+      // Make multiple requests to test for memory leaks (configurable)
       const testTool = tools[0];
-      const iterations = 10;
+      const iterations = context.config.testParameters?.testIterations ?? 10;
 
       for (let i = 0; i < iterations; i++) {
         try {
@@ -439,8 +439,9 @@ export class LargePayloadTestSuite implements TestSuitePlugin {
 
       await client.close();
 
-      // Allow up to 10MB growth for the test
-      const isStable = memoryGrowthMB < 10;
+      // Allow up to configured threshold growth for the test
+      const memoryThreshold = context.config.testParameters?.memoryGrowthThresholdMB ?? 10;
+      const isStable = memoryGrowthMB < memoryThreshold;
 
       return {
         name: testName,
@@ -510,7 +511,8 @@ export class LargePayloadTestSuite implements TestSuitePlugin {
         };
       }
 
-      // Test reading each resource and measure size
+      // Test reading each resource and measure size (configurable limit)
+      const maxResources = context.config.testParameters?.maxResourcesToTest ?? 5;
       const resourceResults: Array<{
         uri: string;
         sizeBytes: number;
@@ -518,7 +520,7 @@ export class LargePayloadTestSuite implements TestSuitePlugin {
         success: boolean;
       }> = [];
 
-      for (const resource of resources.slice(0, 5)) {
+      for (const resource of resources.slice(0, maxResources)) {
         const reqStart = Date.now();
         try {
           const content = await client.readResource(resource.uri);

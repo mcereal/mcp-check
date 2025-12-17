@@ -51,6 +51,15 @@ const DEFAULT_CONFIG: Partial<CheckConfig> = {
     maxConcurrentTests: 1,
     maxConcurrentConnections: 1,
   },
+  testParameters: {
+    maxUnexpectedTools: 3,
+    maxResourcesToTest: 5,
+    rapidRequestCount: 10,
+    concurrentRequestCount: 3,
+    testIterations: 10,
+    payloadSizes: [1024, 10240, 102400], // 1KB, 10KB, 100KB
+    memoryGrowthThresholdMB: 10,
+  },
 };
 
 /**
@@ -354,6 +363,10 @@ export function resolveConfig(config: CheckConfig): ResolvedCheckConfig {
     parallelism: {
       ...DEFAULT_CONFIG.parallelism!,
       ...config.parallelism,
+    },
+    testParameters: {
+      ...DEFAULT_CONFIG.testParameters!,
+      ...config.testParameters,
     },
   } as ResolvedCheckConfig;
 
