@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/mcereal/mcp-check/compare/v1.0.1...v1.0.2) (2025-12-17)
+
+
+### Bug Fixes
+
+* dep vulns and tests ([beff1b5](https://github.com/mcereal/mcp-check/commit/beff1b51feff6aa58add55d4aad4da791cbdb133))
+
 ## [1.0.1](https://github.com/mcereal/mcp-check/compare/v1.0.0...v1.0.1) (2025-10-07)
 
 
