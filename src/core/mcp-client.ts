@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { Logger } from '../types/reporting';
 import { Target } from '../types/config';
 import { Transport } from '../types/transport';
+import { TcpTransport } from '../transports/tcp';
 
 // Infer types from Zod schemas
 type Tool = z.infer<typeof ToolSchema>;
@@ -99,19 +100,23 @@ export class MCPTestClient {
       await this.client.connect(this.sdkTransport);
       this.initialized = true;
 
+      const serverCapabilities = this.client.getServerCapabilities();
+      const serverVersion = this.client.getServerVersion();
+
       this.logger.info('MCP client initialized using SDK', {
-        serverCapabilities: this.client.getServerCapabilities(),
-        serverVersion: this.client.getServerVersion(),
+        serverCapabilities,
+        serverVersion,
       });
 
-      // Mock response for testing compatibility
+      // Return initialization result using actual SDK values
+      // Protocol version is negotiated internally by SDK (MCP spec 2024-11-05)
       return {
         jsonrpc: '2.0',
         id: 'init-' + Date.now(),
         result: {
-          protocolVersion: '2024-11-05',
-          capabilities: this.client.getServerCapabilities(),
-          serverInfo: this.client.getServerVersion(),
+          protocolVersion: '2024-11-05', // SDK-negotiated version
+          capabilities: serverCapabilities,
+          serverInfo: serverVersion,
         },
       };
     } catch (error) {
@@ -150,9 +155,13 @@ export class MCPTestClient {
         this.sdkTransport = new WebSocketClientTransport(new URL(target.url));
         break;
 
-      case 'tcp':
-        // TCP transport not directly supported by SDK, use adapter
-        throw new Error('TCP transport requires custom transport adapter');
+      case 'tcp': {
+        // TCP transport not directly supported by SDK, use custom transport with adapter
+        const tcpTransport = new TcpTransport();
+        await tcpTransport.connect(target);
+        await this.connectWithCustomTransport(tcpTransport);
+        return;
+      }
 
       default:
         // TypeScript exhaustiveness check

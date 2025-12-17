@@ -48,12 +48,14 @@ describe('core/config', () => {
     it('expands suites="all" into the canonical list', () => {
       const resolved = resolveConfig({ ...minimalConfig, suites: 'all' });
       expect(Array.isArray(resolved.suites)).toBe(true);
-      // Only implemented suites should be included
+      // All implemented suites should be included
       expect(resolved.suites).toContain('handshake');
       expect(resolved.suites).toContain('tool-discovery');
       expect(resolved.suites).toContain('tool-invocation');
       expect(resolved.suites).toContain('streaming');
-      expect(resolved.suites).toHaveLength(4);
+      expect(resolved.suites).toContain('timeout');
+      expect(resolved.suites).toContain('large-payload');
+      expect(resolved.suites).toHaveLength(6);
     });
   });
 

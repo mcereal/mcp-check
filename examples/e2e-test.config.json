@@ -43,7 +43,7 @@
       }
     ]
   },
-  "suites": ["handshake", "tool-discovery", "tool-invocation", "streaming"],
+  "suites": ["handshake", "tool-discovery", "tool-invocation", "streaming", "timeout", "large-payload"],
   "timeouts": {
     "connectMs": 10000,
     "invokeMs": 30000,

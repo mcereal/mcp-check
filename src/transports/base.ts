@@ -123,14 +123,9 @@ export abstract class BaseTransport extends EventEmitter implements Transport {
     this.setState('error');
     if (this.listenerCount('error') > 0) {
       this.emit('error', error);
-    } else {
-      // Preserve node semantics without crashing tests when no listener is attached
-       
-      console.error('Unhandled transport error', {
-        transport: this.type,
-        message: error.message,
-      });
     }
+    // If no error listener is attached, the error is silently absorbed.
+    // The state change to 'error' still occurs, allowing state-based error detection.
   }
 
   /**

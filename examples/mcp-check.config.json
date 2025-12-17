@@ -42,7 +42,9 @@
         "handshake",
         "tool-discovery",
         "tool-invocation",
-        "streaming"
+        "streaming",
+        "timeout",
+        "large-payload"
     ],
     "timeouts": {
         "connectMs": 5000,

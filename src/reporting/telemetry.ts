@@ -220,7 +220,7 @@ export class TelemetryManager {
         success: results.summary.failed === 0,
       },
       environment: {
-        mcpCheckVersion: results.metadata.environment.nodeVersion,
+        mcpCheckVersion: results.metadata.mcpCheckVersion,
         nodeVersion: results.metadata.environment.nodeVersion,
         platform: results.metadata.environment.platform,
         architecture: results.metadata.environment.architecture,

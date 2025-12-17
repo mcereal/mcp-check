@@ -57,10 +57,7 @@ describe('WebSocketTransport', () => {
     activeSocket.emit('error', error);
     await expect(connectPromise).rejects.toThrow('boom');
     expect(transport.state).toBe('error');
-    expect(console.error).toHaveBeenCalledWith('Unhandled transport error', {
-      transport: 'websocket',
-      message: 'boom',
-    });
+    // Error state is set but console.error is no longer called (errors are silently absorbed if no listener)
   });
 
   it('serialises outbound messages', async () => {

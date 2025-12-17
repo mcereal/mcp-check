@@ -358,13 +358,15 @@ export function resolveConfig(config: CheckConfig): ResolvedCheckConfig {
   } as ResolvedCheckConfig;
 
   // Ensure suites is always an array
-  // Only include actually implemented suites
+  // Include all implemented suites
   if (resolved.suites === 'all') {
     resolved.suites = [
       'handshake',
       'tool-discovery',
       'tool-invocation',
       'streaming',
+      'timeout',
+      'large-payload',
     ];
   }
 
