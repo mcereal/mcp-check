@@ -158,7 +158,7 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
         durationMs: invokeTime,
         details: {
           input: basicInput,
-          responseContentCount: response.content?.length || 0,
+          responseContentCount: Array.isArray(response.content) ? response.content.length : 0,
           responseTimeMs: invokeTime,
           isError: response.isError || false,
         },

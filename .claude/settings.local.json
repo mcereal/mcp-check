@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(npm run test:*)",
+      "Bash(grep:*)",
+      "Bash(npm run build:*)",
+      "Bash(cat:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm test:*)",
+      "Bash(./bin/mcp-check.js:*)",
+      "Bash(node ./bin/mcp-check.js:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run lint:fix:*)"
+    ]
+  }
+}

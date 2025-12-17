@@ -274,7 +274,7 @@ export class StreamingTestSuite implements TestSuitePlugin {
         details: {
           toolName: tool.name,
           operationTime,
-          contentLength: result.content?.length || 0,
+          contentLength: Array.isArray(result.content) ? result.content.length : 0,
           isError: result.isError || false,
         },
       });

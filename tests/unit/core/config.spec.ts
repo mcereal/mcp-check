@@ -41,14 +41,19 @@ describe('core/config', () => {
       expect(resolved.chaos?.enable).toBe(true);
       expect(resolved.chaos?.intensity).toBe(0.2);
       expect(resolved.timeouts?.connectMs).toBeGreaterThan(0);
-      expect(resolved.version).toBe('0.1.0');
+      // Version should be read from package.json
+      expect(resolved.version).toMatch(/^\d+\.\d+\.\d+/);
     });
 
     it('expands suites="all" into the canonical list', () => {
       const resolved = resolveConfig({ ...minimalConfig, suites: 'all' });
       expect(Array.isArray(resolved.suites)).toBe(true);
+      // Only implemented suites should be included
       expect(resolved.suites).toContain('handshake');
-      expect(resolved.suites).toContain('large-payloads');
+      expect(resolved.suites).toContain('tool-discovery');
+      expect(resolved.suites).toContain('tool-invocation');
+      expect(resolved.suites).toContain('streaming');
+      expect(resolved.suites).toHaveLength(4);
     });
   });
 

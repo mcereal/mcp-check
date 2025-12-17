@@ -17,6 +17,7 @@ import { ToolDiscoveryTestSuite } from '../suites/tool-discovery';
 import { ToolInvocationTestSuite } from '../suites/tool-invocation';
 import { StreamingTestSuite } from '../suites/streaming';
 import { createLogger } from '../core/logger';
+import { FileFixtureManager } from '../core/fixture-manager';
 
 // Load package.json to get version
 const packageJson = require('../../package.json');
@@ -150,6 +151,117 @@ export async function runCLI(): Promise<void> {
       console.log(chalk.blue('Available test suites:'));
       for (const suite of suites) {
         console.log(`  ${chalk.green(suite.name)}: ${suite.description}`);
+      }
+    });
+
+  // Fixtures command group
+  const fixtures = program
+    .command('fixtures')
+    .description('Manage test fixtures');
+
+  // List fixtures
+  fixtures
+    .command('list')
+    .description('List all saved test fixtures')
+    .option('-d, --dir <path>', 'Fixtures directory', './fixtures')
+    .action(async (options) => {
+      try {
+        const logger = createLogger('info', false);
+        const manager = new FileFixtureManager(options.dir, logger);
+        const fixtureList = await manager.list();
+
+        if (fixtureList.length === 0) {
+          console.log(chalk.yellow('No fixtures found.'));
+          return;
+        }
+
+        console.log(chalk.blue(`Found ${fixtureList.length} fixture(s):\n`));
+        for (const fixture of fixtureList) {
+          console.log(`  ${chalk.green(fixture.id)}`);
+          console.log(`    Description: ${fixture.description}`);
+          console.log(`    Created: ${fixture.timestamp}`);
+          if (fixture.scenario?.toolName) {
+            console.log(`    Tool: ${fixture.scenario.toolName}`);
+          }
+          console.log();
+        }
+      } catch (error) {
+        console.error(chalk.red('Error listing fixtures:'), error.message);
+        process.exit(1);
+      }
+    });
+
+  // Show fixture details
+  fixtures
+    .command('show <id>')
+    .description('Show details of a specific fixture')
+    .option('-d, --dir <path>', 'Fixtures directory', './fixtures')
+    .action(async (id, options) => {
+      try {
+        const logger = createLogger('info', false);
+        const manager = new FileFixtureManager(options.dir, logger);
+        const fixture = await manager.load(id);
+
+        console.log(chalk.blue('Fixture Details:\n'));
+        console.log(JSON.stringify(fixture, null, 2));
+      } catch (error) {
+        console.error(chalk.red('Error loading fixture:'), error.message);
+        process.exit(1);
+      }
+    });
+
+  // Export fixtures
+  fixtures
+    .command('export')
+    .description('Export all fixtures to a directory')
+    .option('-d, --dir <path>', 'Source fixtures directory', './fixtures')
+    .option('-o, --output <path>', 'Output directory', './fixtures-export')
+    .action(async (options) => {
+      try {
+        const logger = createLogger('info', false);
+        const manager = new FileFixtureManager(options.dir, logger);
+        await manager.export(options.output);
+
+        const fixtureList = await manager.list();
+        console.log(
+          chalk.green(
+            `Exported ${fixtureList.length} fixture(s) to ${options.output}`,
+          ),
+        );
+      } catch (error) {
+        console.error(chalk.red('Error exporting fixtures:'), error.message);
+        process.exit(1);
+      }
+    });
+
+  // Cleanup old fixtures
+  fixtures
+    .command('cleanup')
+    .description('Remove old fixtures')
+    .option('-d, --dir <path>', 'Fixtures directory', './fixtures')
+    .option(
+      '--max-age <days>',
+      'Maximum age in days (default: 7)',
+      '7',
+    )
+    .action(async (options) => {
+      try {
+        const logger = createLogger('info', false);
+        const manager = new FileFixtureManager(options.dir, logger);
+        const maxAgeMs =
+          parseInt(options.maxAge, 10) * 24 * 60 * 60 * 1000;
+        const cleaned = await manager.cleanup(maxAgeMs);
+
+        if (cleaned === 0) {
+          console.log(chalk.yellow('No fixtures to clean up.'));
+        } else {
+          console.log(
+            chalk.green(`Cleaned up ${cleaned} old fixture(s).`),
+          );
+        }
+      } catch (error) {
+        console.error(chalk.red('Error cleaning fixtures:'), error.message);
+        process.exit(1);
       }
     });
 

@@ -5,6 +5,19 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import Ajv from 'ajv';
+
+/**
+ * Get package version from package.json
+ */
+function getPackageVersion(): string {
+  try {
+    const packageJsonPath = path.resolve(__dirname, '../../package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+    return packageJson.version || '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
 import {
   CheckConfig,
   ResolvedCheckConfig,
@@ -316,7 +329,7 @@ export function resolveConfig(config: CheckConfig): ResolvedCheckConfig {
   const resolved: ResolvedCheckConfig = {
     ...DEFAULT_CONFIG,
     ...config,
-    version: '0.1.0', // TODO: Read from package.json properly
+    version: getPackageVersion(),
     environment: {
       platform: process.platform,
       nodeVersion: process.version,
@@ -345,20 +358,13 @@ export function resolveConfig(config: CheckConfig): ResolvedCheckConfig {
   } as ResolvedCheckConfig;
 
   // Ensure suites is always an array
+  // Only include actually implemented suites
   if (resolved.suites === 'all') {
     resolved.suites = [
       'handshake',
       'tool-discovery',
       'tool-invocation',
       'streaming',
-      'cancellation',
-      'timeouts',
-      'large-payloads',
-      'chaos-network',
-      'chaos-protocol',
-      'chaos-timing',
-      'performance-baseline',
-      'security-input-validation',
     ];
   }
 

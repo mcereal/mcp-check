@@ -11,12 +11,10 @@ import {
   ToolSchema,
   ResourceSchema,
   PromptSchema,
-  CallToolResultSchema,
+  CompatibilityCallToolResultSchema,
   GetPromptResultSchema,
-  TextContentSchema,
-  ImageContentSchema,
-  ContentBlockSchema,
   ClientCapabilitiesSchema,
+  ReadResourceResultSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 
@@ -28,12 +26,12 @@ import { Transport } from '../types/transport';
 type Tool = z.infer<typeof ToolSchema>;
 type Resource = z.infer<typeof ResourceSchema>;
 type Prompt = z.infer<typeof PromptSchema>;
-type CallToolResult = z.infer<typeof CallToolResultSchema>;
+type CallToolResult = z.infer<typeof CompatibilityCallToolResultSchema>;
 type GetPromptResult = z.infer<typeof GetPromptResultSchema>;
-type ContentBlock = z.infer<typeof ContentBlockSchema>;
+type ReadResourceResult = z.infer<typeof ReadResourceResultSchema>;
 
 /**
- * Adapter to bridge your custom transport interface with SDK transport
+ * Adapter to bridge custom transport interface with SDK transport
  */
 class TransportAdapter implements SDKTransport {
   constructor(private customTransport: Transport) {}
@@ -234,7 +232,10 @@ export class MCPTestClient {
    */
   async callTool(name: string, args?: any): Promise<CallToolResult> {
     this.ensureInitialized();
-    return await this.client.callTool({ name, arguments: args });
+    return await this.client.callTool(
+      { name, arguments: args },
+      CompatibilityCallToolResultSchema,
+    );
   }
 
   /**
@@ -249,10 +250,9 @@ export class MCPTestClient {
   /**
    * Read a resource
    */
-  async readResource(uri: string): Promise<ContentBlock[]> {
+  async readResource(uri: string): Promise<ReadResourceResult> {
     this.ensureInitialized();
-    const result = await this.client.readResource({ uri });
-    return result.contents || [];
+    return await this.client.readResource({ uri });
   }
 
   /**
