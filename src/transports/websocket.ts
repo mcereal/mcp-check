@@ -28,6 +28,8 @@ export class WebSocketTransport extends BaseTransport {
         headers: target.headers,
       });
 
+      const connectionTimeout = target.timeout ?? 10000;
+
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
           // Normalise rejection so tests receive a consistent Error instance
@@ -36,9 +38,9 @@ export class WebSocketTransport extends BaseTransport {
           );
           cleanup();
           reject(timeoutError);
-        }, 10000);
+        }, connectionTimeout);
 
-        const handleOpen = () => {
+        const handleOpen = (): void => {
           clearTimeout(timeout);
           this._stats.connectionTime = Date.now() - connectionStart;
           this.setState('connected');
@@ -46,21 +48,21 @@ export class WebSocketTransport extends BaseTransport {
           resolve();
         };
 
-        const handleError = (error: Error) => {
+        const handleError = (error: Error): void => {
           clearTimeout(timeout);
           cleanup();
           this.handleError(error);
           reject(error);
         };
 
-        const cleanup = () => {
+        const cleanup = (): void => {
           if (!this.ws) return;
-          this.ws.off('open', handleOpen as any);
-          this.ws.off('error', handleError as any);
+          this.ws.removeListener('open', handleOpen);
+          this.ws.removeListener('error', handleError);
         };
 
-        this.ws.on('open', handleOpen as any);
-        this.ws.on('error', handleError as any);
+        this.ws.on('open', handleOpen);
+        this.ws.on('error', handleError);
       });
 
       this.setupWebSocketHandlers();

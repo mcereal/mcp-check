@@ -7,10 +7,12 @@ import {
   TestSuitePlugin,
   TestContext,
   TestSuiteResult,
+  TestCaseResult,
   ValidationResult,
 } from '../types/test';
 import { CheckConfig } from '../types/config';
 import { MCPTestClient } from '../core/mcp-client';
+import { MCPTool, JSONSchemaProperty } from '../types/mcp';
 
 // JSON Schema meta-schema for validating tool input schemas (simplified)
 // Note: $id removed to avoid duplicate schema registration in tests
@@ -346,7 +348,7 @@ export class ToolDiscoveryTestSuite implements TestSuitePlugin {
     };
   }
 
-  private validateToolSchema(tool: any): { valid: boolean; errors: string[] } {
+  private validateToolSchema(tool: MCPTool): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
     // Basic structure validation
@@ -374,7 +376,7 @@ export class ToolDiscoveryTestSuite implements TestSuitePlugin {
     }
 
     // Additional semantic checks for MCP tool schemas
-    const schema = tool.inputSchema;
+    const schema = tool.inputSchema as JSONSchemaProperty;
 
     // Check that schema has meaningful structure
     if (!schema.type && !schema.properties && !schema.$ref && !schema.oneOf && !schema.anyOf && !schema.allOf) {
@@ -382,7 +384,7 @@ export class ToolDiscoveryTestSuite implements TestSuitePlugin {
     }
 
     // Validate type is appropriate for tool input
-    if (schema.type && !['object', 'array', 'string', 'number', 'integer', 'boolean'].includes(schema.type)) {
+    if (schema.type && typeof schema.type === 'string' && !['object', 'array', 'string', 'number', 'integer', 'boolean'].includes(schema.type)) {
       errors.push(`Invalid schema type: ${schema.type}`);
     }
 
@@ -394,7 +396,7 @@ export class ToolDiscoveryTestSuite implements TestSuitePlugin {
     // Validate property schemas recursively
     if (schema.properties && typeof schema.properties === 'object') {
       for (const [propName, propSchema] of Object.entries(schema.properties)) {
-        const propErrors = this.validatePropertySchema(propName, propSchema as any);
+        const propErrors = this.validatePropertySchema(propName, propSchema);
         errors.push(...propErrors);
       }
     }
@@ -416,7 +418,7 @@ export class ToolDiscoveryTestSuite implements TestSuitePlugin {
     return { valid: errors.length === 0, errors };
   }
 
-  private validatePropertySchema(propName: string, schema: any): string[] {
+  private validatePropertySchema(propName: string, schema: JSONSchemaProperty): string[] {
     const errors: string[] = [];
 
     if (!schema || typeof schema !== 'object') {
@@ -500,7 +502,7 @@ export class ToolDiscoveryTestSuite implements TestSuitePlugin {
   }
 
   private determineOverallStatus(
-    cases: any[],
+    cases: TestCaseResult[],
   ): 'passed' | 'failed' | 'warning' {
     if (cases.some((c) => c.status === 'failed')) {
       return 'failed';

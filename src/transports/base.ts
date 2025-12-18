@@ -12,6 +12,27 @@ import {
 import { Target } from '../types/config';
 
 /**
+ * Options for connection retry behavior
+ */
+export interface RetryOptions {
+  /** Maximum number of retry attempts (default: 3) */
+  maxRetries?: number;
+  /** Initial delay between retries in ms (default: 1000) */
+  initialDelayMs?: number;
+  /** Maximum delay between retries in ms (default: 10000) */
+  maxDelayMs?: number;
+  /** Multiplier for exponential backoff (default: 2) */
+  backoffMultiplier?: number;
+}
+
+const DEFAULT_RETRY_OPTIONS: Required<RetryOptions> = {
+  maxRetries: 3,
+  initialDelayMs: 1000,
+  maxDelayMs: 10000,
+  backoffMultiplier: 2,
+};
+
+/**
  * Base transport class with common functionality
  */
 export abstract class BaseTransport extends EventEmitter implements Transport {
@@ -23,6 +44,8 @@ export abstract class BaseTransport extends EventEmitter implements Transport {
     messagesReceived: 0,
     bytesTransferred: 0,
   };
+  protected _lastError?: Error;
+  protected _connectionAttempts = 0;
 
   get state(): ConnectionState {
     return this._state;
@@ -32,9 +55,59 @@ export abstract class BaseTransport extends EventEmitter implements Transport {
     return { ...this._stats };
   }
 
+  /** Get the last error that occurred on this transport */
+  get lastError(): Error | undefined {
+    return this._lastError;
+  }
+
+  /** Get the number of connection attempts made */
+  get connectionAttempts(): number {
+    return this._connectionAttempts;
+  }
+
   abstract connect(target: Target): Promise<void>;
   abstract send(message: any): Promise<void>;
   abstract close(): Promise<void>;
+
+  /**
+   * Connect with automatic retry on failure
+   * Subclasses should implement doConnect() for the actual connection logic
+   */
+  async connectWithRetry(
+    target: Target,
+    options: RetryOptions = {},
+  ): Promise<void> {
+    const opts = { ...DEFAULT_RETRY_OPTIONS, ...options };
+    let delay = opts.initialDelayMs;
+    let lastError: Error | undefined;
+
+    for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
+      this._connectionAttempts = attempt + 1;
+
+      try {
+        await this.connect(target);
+        return; // Success
+      } catch (error) {
+        lastError = error as Error;
+        this._lastError = lastError;
+
+        if (attempt < opts.maxRetries) {
+          // Wait before retrying with exponential backoff
+          await this.sleep(delay);
+          delay = Math.min(delay * opts.backoffMultiplier, opts.maxDelayMs);
+        }
+      }
+    }
+
+    throw new Error(
+      `Failed to connect after ${opts.maxRetries + 1} attempts: ${lastError?.message}`,
+    );
+  }
+
+  /** Sleep helper for retry delays */
+  protected sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
   /**
    * Wait for a specific message or timeout
@@ -118,14 +191,30 @@ export abstract class BaseTransport extends EventEmitter implements Transport {
 
   /**
    * Handle transport errors
+   * Tracks the error and emits it if listeners are attached.
+   * The error is always tracked in lastError for later inspection.
    */
   protected handleError(error: Error): void {
+    this._lastError = error;
     this.setState('error');
     if (this.listenerCount('error') > 0) {
       this.emit('error', error);
     }
-    // If no error listener is attached, the error is silently absorbed.
-    // The state change to 'error' still occurs, allowing state-based error detection.
+    // Error is tracked in _lastError even if no listener - can be retrieved via lastError getter
+  }
+
+  /**
+   * Reset transport state for reconnection
+   */
+  protected resetState(): void {
+    this._state = 'disconnected';
+    this._stats = {
+      messagesSent: 0,
+      messagesReceived: 0,
+      bytesTransferred: 0,
+    };
+    this._lastError = undefined;
+    this._connectionAttempts = 0;
   }
 
   /**

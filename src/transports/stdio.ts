@@ -32,11 +32,13 @@ export class StdioTransport extends BaseTransport {
 
       this.setupProcessHandlers();
 
+      const connectionTimeout = target.timeout ?? 5000;
+
       // Wait for process to be ready
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error('Process startup timeout'));
-        }, 5000);
+        }, connectionTimeout);
 
         this.process!.on('spawn', () => {
           clearTimeout(timeout);

@@ -129,13 +129,13 @@ describe('ToolInvocationTestSuite', () => {
         throw new Error('validation error');
       }
       return {
-        result: { content: [{ type: 'text', text: input.message || 'ok' }] },
+        content: [{ type: 'text', text: input.message || 'ok' }],
         isError: false,
       };
     });
 
     timeoutClient.callTool.mockResolvedValue({
-      result: { content: [{ type: 'text', text: 'timeout ok' }] },
+      content: [{ type: 'text', text: 'timeout ok' }],
       isError: false,
     });
 

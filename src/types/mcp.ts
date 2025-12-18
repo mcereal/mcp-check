@@ -98,3 +98,48 @@ export interface MCPClient {
   getServerCapabilities?(): MCPServerCapabilities | undefined;
   getServerVersion?(): any;
 }
+
+/**
+ * JSON Schema type definition for tool input schemas
+ * Based on JSON Schema draft-07
+ */
+export interface JSONSchemaProperty {
+  type?: string | string[];
+  description?: string;
+  default?: unknown;
+  enum?: unknown[];
+  const?: unknown;
+  // String constraints
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  format?: string;
+  // Number constraints
+  minimum?: number;
+  maximum?: number;
+  exclusiveMinimum?: number;
+  exclusiveMaximum?: number;
+  multipleOf?: number;
+  // Array constraints
+  items?: JSONSchemaProperty | JSONSchemaProperty[];
+  minItems?: number;
+  maxItems?: number;
+  uniqueItems?: boolean;
+  // Object constraints
+  properties?: Record<string, JSONSchemaProperty>;
+  required?: string[];
+  additionalProperties?: boolean | JSONSchemaProperty;
+  // Composition
+  allOf?: JSONSchemaProperty[];
+  anyOf?: JSONSchemaProperty[];
+  oneOf?: JSONSchemaProperty[];
+  not?: JSONSchemaProperty;
+  $ref?: string;
+}
+
+export interface JSONSchema extends JSONSchemaProperty {
+  $schema?: string;
+  $id?: string;
+  title?: string;
+  definitions?: Record<string, JSONSchemaProperty>;
+}

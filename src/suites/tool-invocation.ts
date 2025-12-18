@@ -7,10 +7,11 @@ import {
   TestContext,
   TestSuiteResult,
   ValidationResult,
+  TestCaseResult,
 } from '../types/test';
-import { CheckConfig } from '../types/config';
+import { CheckConfig, ToolExpectation } from '../types/config';
 import { MCPTestClient } from '../core/mcp-client';
-import { MCPTool } from '../types/mcp';
+import { MCPTool, MCPCallToolResult, JSONSchemaProperty } from '../types/mcp';
 
 export class ToolInvocationTestSuite implements TestSuitePlugin {
   readonly name = 'tool-invocation';
@@ -136,8 +137,8 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
   private async testTool(
     client: MCPTestClient,
     tool: MCPTool,
-    expectedTool: any,
-    cases: any[],
+    expectedTool: ToolExpectation | undefined,
+    cases: TestCaseResult[],
     context: TestContext,
   ): Promise<void> {
     const toolName = tool.name;
@@ -266,7 +267,7 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
   private async testTimeouts(
     client: MCPTestClient,
     tools: MCPTool[],
-    cases: any[],
+    cases: TestCaseResult[],
     context: TestContext,
   ): Promise<void> {
     if (tools.length === 0) return;
@@ -347,7 +348,7 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
   private async testErrorHandling(
     client: MCPTestClient,
     tools: MCPTool[],
-    cases: any[],
+    cases: TestCaseResult[],
     context: TestContext,
   ): Promise<void> {
     // Test calling non-existent tool
@@ -389,16 +390,16 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     }
   }
 
-  private generateBasicInput(tool: MCPTool): any {
+  private generateBasicInput(tool: MCPTool): Record<string, unknown> {
     if (!tool.inputSchema) return {};
 
     // Generate minimal valid input based on schema
-    const schema = tool.inputSchema;
+    const schema = tool.inputSchema as JSONSchemaProperty;
 
     if (schema.type === 'object') {
-      const input: any = {};
+      const input: Record<string, unknown> = {};
       if (schema.properties) {
-        for (const [key, prop] of Object.entries(schema.properties as any)) {
+        for (const [key, prop] of Object.entries(schema.properties)) {
           if (schema.required && schema.required.includes(key)) {
             input[key] = this.generateValueForProperty(prop);
           }
@@ -410,13 +411,13 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     return {};
   }
 
-  private generateInvalidInput(tool: MCPTool): any {
-    const schema = tool.inputSchema;
+  private generateInvalidInput(tool: MCPTool): Record<string, unknown> {
+    const schema = tool.inputSchema as JSONSchemaProperty | undefined;
 
-    if (schema.type === 'object' && schema.properties) {
+    if (schema?.type === 'object' && schema.properties) {
       // Return an object with invalid property types
-      const invalidInput: any = {};
-      for (const [key, prop] of Object.entries(schema.properties as any)) {
+      const invalidInput: Record<string, unknown> = {};
+      for (const [key, prop] of Object.entries(schema.properties)) {
         invalidInput[key] = this.generateInvalidValueForProperty(prop);
       }
       return invalidInput;
@@ -425,12 +426,12 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     return { invalidProperty: 'this should not be accepted' };
   }
 
-  private generateDeterministicInput(tool: MCPTool): any {
+  private generateDeterministicInput(tool: MCPTool): Record<string, unknown> {
     // Generate the same input consistently for deterministic testing
     return this.generateBasicInput(tool);
   }
 
-  private generateValueForProperty(prop: any): any {
+  private generateValueForProperty(prop: JSONSchemaProperty): unknown {
     switch (prop.type) {
       case 'string':
         return this.generateStringValue(prop);
@@ -456,10 +457,10 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     }
   }
 
-  private generateStringValue(prop: any): string {
+  private generateStringValue(prop: JSONSchemaProperty): string {
     // Use enum value if available
     if (prop.enum && prop.enum.length > 0) {
-      return prop.enum[0];
+      return String(prop.enum[0]);
     }
     // Use const if available
     if (prop.const !== undefined) {
@@ -529,15 +530,15 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     return formatValues[format] ?? 'test';
   }
 
-  private generateNumberValue(prop: any): number {
+  private generateNumberValue(prop: JSONSchemaProperty): number {
     if (prop.enum && prop.enum.length > 0) {
-      return prop.enum[0];
+      return prop.enum[0] as number;
     }
     if (prop.const !== undefined) {
-      return prop.const;
+      return prop.const as number;
     }
     if (prop.default !== undefined) {
-      return prop.default;
+      return prop.default as number;
     }
     const min = prop.minimum ?? prop.exclusiveMinimum ?? 0;
     const max = prop.maximum ?? prop.exclusiveMaximum ?? 100;
@@ -554,15 +555,15 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     return value;
   }
 
-  private generateIntegerValue(prop: any): number {
+  private generateIntegerValue(prop: JSONSchemaProperty): number {
     if (prop.enum && prop.enum.length > 0) {
-      return prop.enum[0];
+      return prop.enum[0] as number;
     }
     if (prop.const !== undefined) {
-      return prop.const;
+      return prop.const as number;
     }
     if (prop.default !== undefined) {
-      return prop.default;
+      return prop.default as number;
     }
     const min = prop.minimum ?? prop.exclusiveMinimum ?? 0;
     const max = prop.maximum ?? prop.exclusiveMaximum ?? 100;
@@ -579,15 +580,15 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     return Math.floor(value);
   }
 
-  private generateArrayValue(prop: any): any[] {
+  private generateArrayValue(prop: JSONSchemaProperty): unknown[] {
     const minItems = prop.minItems ?? 0;
     const maxItems = prop.maxItems ?? 3;
     const targetItems = Math.max(minItems, Math.min(1, maxItems));
 
     if (targetItems === 0) return [];
 
-    const itemSchema = prop.items || { type: 'string' };
-    const items: any[] = [];
+    const itemSchema: JSONSchemaProperty = (Array.isArray(prop.items) ? prop.items[0] : prop.items) || { type: 'string' };
+    const items: unknown[] = [];
 
     for (let i = 0; i < targetItems; i++) {
       items.push(this.generateValueForProperty(itemSchema));
@@ -595,11 +596,11 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     return items;
   }
 
-  private generateObjectValue(prop: any): Record<string, any> {
-    const obj: Record<string, any> = {};
+  private generateObjectValue(prop: JSONSchemaProperty): Record<string, unknown> {
+    const obj: Record<string, unknown> = {};
     if (prop.properties) {
       const required = prop.required || [];
-      for (const [key, subProp] of Object.entries(prop.properties as any)) {
+      for (const [key, subProp] of Object.entries(prop.properties)) {
         // Only include required properties to keep it minimal
         if (required.includes(key)) {
           obj[key] = this.generateValueForProperty(subProp);
@@ -609,7 +610,7 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     return obj;
   }
 
-  private generateInvalidValueForProperty(prop: any): any {
+  private generateInvalidValueForProperty(prop: JSONSchemaProperty): unknown {
     switch (prop.type) {
       case 'string':
         return this.generateInvalidStringValue(prop);
@@ -627,7 +628,7 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     }
   }
 
-  private generateInvalidStringValue(prop: any): any {
+  private generateInvalidStringValue(prop: JSONSchemaProperty): string | number {
     // If enum is defined, return value not in enum
     if (prop.enum && prop.enum.length > 0) {
       return 'INVALID_ENUM_VALUE_' + Date.now();
@@ -648,7 +649,7 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     return 12345;
   }
 
-  private generateInvalidNumberValue(prop: any): any {
+  private generateInvalidNumberValue(prop: JSONSchemaProperty): number | string {
     // Violate minimum
     if (prop.minimum !== undefined) {
       return prop.minimum - 1000;
@@ -669,14 +670,14 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     return 'not_a_number';
   }
 
-  private generateInvalidArrayValue(prop: any): any {
+  private generateInvalidArrayValue(prop: JSONSchemaProperty): string[] | string {
     // Violate minItems
     if (prop.minItems && prop.minItems > 0) {
       return [];
     }
     // Violate maxItems
     if (prop.maxItems !== undefined) {
-      const items: any[] = [];
+      const items: string[] = [];
       for (let i = 0; i < prop.maxItems + 5; i++) {
         items.push('item');
       }
@@ -686,29 +687,29 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     return 'not_an_array';
   }
 
-  private validateToolResponse(response: any): boolean {
-    if (!response || !response.result) return false;
+  private validateToolResponse(response: unknown): boolean {
+    if (!response || typeof response !== 'object') return false;
 
-    const result = response.result;
+    const resp = response as Record<string, unknown>;
 
     // Must have content array
-    if (!Array.isArray(result.content)) return false;
+    if (!Array.isArray(resp.content)) return false;
 
     // Each content item must have a type
-    for (const content of result.content) {
-      if (!content.type) return false;
+    for (const content of resp.content) {
+      if (!content || typeof content !== 'object' || !('type' in content)) return false;
     }
 
     return true;
   }
 
-  private compareResults(result1: any, result2: any): boolean {
+  private compareResults(result1: unknown, result2: unknown): boolean {
     // Simple comparison - in production you'd do deep comparison
     return JSON.stringify(result1) === JSON.stringify(result2);
   }
 
   private determineOverallStatus(
-    cases: any[],
+    cases: TestCaseResult[],
   ): 'passed' | 'failed' | 'warning' {
     if (cases.some((c) => c.status === 'failed')) {
       return 'failed';

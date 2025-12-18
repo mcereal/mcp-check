@@ -203,7 +203,14 @@ export class MCPChecker extends EventEmitter {
         },
         suites: suiteResults,
         fixtures: await this.fixtureManager.list(),
-        metadata: {} as any, // Will be filled in by caller
+        // Metadata is populated by the caller in run() method
+        metadata: {
+          mcpCheckVersion: '',
+          startedAt: '',
+          completedAt: '',
+          durationMs: 0,
+          environment: this.config.environment,
+        },
       };
     } finally {
       await this.cleanupTransport(transport);
@@ -288,13 +295,33 @@ export class MCPChecker extends EventEmitter {
   }
 
   private getSuitesToRun(options?: TestExecutionOptions): string[] {
+    // Handle options.suites first (CLI override)
+    if (options?.suites && options.suites.length > 0) {
+      const requestedSuites = options.suites.filter((name) =>
+        this.suites.has(name),
+      );
+      if (requestedSuites.length === 0) {
+        throw new Error('No valid test suites found to run');
+      }
+      return this.applyTagFilters(requestedSuites, options);
+    }
+
+    // Handle 'all' - run all registered suites
+    if (this.config.suites === 'all') {
+      const allSuites = Array.from(this.suites.keys());
+      if (allSuites.length === 0) {
+        throw new Error('No test suites registered');
+      }
+      return this.applyTagFilters(allSuites, options);
+    }
+
+    // Handle array of suite names
     const configuredSuites = Array.isArray(this.config.suites)
       ? this.config.suites
       : [];
-    const requestedSuites = options?.suites || configuredSuites;
 
     // Filter out suites that aren't registered
-    const availableSuites = requestedSuites.filter((name) =>
+    const availableSuites = configuredSuites.filter((name) =>
       this.suites.has(name),
     );
 
@@ -302,9 +329,16 @@ export class MCPChecker extends EventEmitter {
       throw new Error('No valid test suites found to run');
     }
 
+    return this.applyTagFilters(availableSuites, options);
+  }
+
+  private applyTagFilters(
+    suites: string[],
+    options?: TestExecutionOptions,
+  ): string[] {
     // Apply tag filtering if specified
     if (options?.tags || options?.excludeTags) {
-      return availableSuites.filter((name) => {
+      return suites.filter((name) => {
         const suite = this.suites.get(name)!;
 
         if (options.tags) {
@@ -325,7 +359,7 @@ export class MCPChecker extends EventEmitter {
       });
     }
 
-    return availableSuites;
+    return suites;
   }
 
   private async createTransport(): Promise<Transport> {

@@ -3,11 +3,31 @@
  */
 
 import { ReportOutput } from '../types/reporting';
-import { TestResults } from '../types/test';
+import { TestResults, TestCaseResult } from '../types/test';
+import { ReportingConfig } from '../types/config';
 import { BaseReporter } from './base-reporter';
 
+interface CriticalFailure {
+  suite: string;
+  test: string;
+  error?: TestCaseResult['error'];
+  fixture?: string;
+}
+
+interface TestDurationEntry {
+  name: string;
+  duration: number;
+}
+
+interface PerformanceMetrics {
+  totalDuration: number;
+  averageTestDuration: number;
+  slowestTests: TestDurationEntry[];
+  fastestTests: TestDurationEntry[];
+}
+
 export class JsonReporter extends BaseReporter {
-  constructor(config: any) {
+  constructor(config: ReportingConfig) {
     super('json', config);
   }
 
@@ -39,8 +59,8 @@ export class JsonReporter extends BaseReporter {
     };
   }
 
-  private getCriticalFailures(results: TestResults) {
-    const criticalFailures: any[] = [];
+  private getCriticalFailures(results: TestResults): CriticalFailure[] {
+    const criticalFailures: CriticalFailure[] = [];
 
     for (const suite of results.suites) {
       for (const testCase of suite.cases) {
@@ -58,21 +78,21 @@ export class JsonReporter extends BaseReporter {
     return criticalFailures;
   }
 
-  private isCritical(testCase: any): boolean {
+  private isCritical(testCase: TestCaseResult): boolean {
     // Consider failures in core protocol functionality as critical
     const criticalSuites = ['handshake', 'tool-discovery'];
     return criticalSuites.some((suite) => testCase.name.includes(suite));
   }
 
-  private extractPerformanceMetrics(results: TestResults) {
-    const metrics = {
+  private extractPerformanceMetrics(results: TestResults): PerformanceMetrics {
+    const metrics: PerformanceMetrics = {
       totalDuration: results.metadata.durationMs,
       averageTestDuration: 0,
-      slowestTests: [] as any[],
-      fastestTests: [] as any[],
+      slowestTests: [],
+      fastestTests: [],
     };
 
-    const allTests: any[] = [];
+    const allTests: TestDurationEntry[] = [];
     for (const suite of results.suites) {
       for (const testCase of suite.cases) {
         allTests.push({

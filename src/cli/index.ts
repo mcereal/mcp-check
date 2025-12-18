@@ -180,6 +180,14 @@ export async function runCLI(): Promise<void> {
           name: 'streaming',
           description: 'Streaming response handling and ordering',
         },
+        {
+          name: 'timeout',
+          description: 'Timeout behavior and slow operation handling',
+        },
+        {
+          name: 'large-payload',
+          description: 'Large data transfer and memory stability',
+        },
       ];
 
       console.log(chalk.blue('Available test suites:'));

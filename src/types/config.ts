@@ -15,12 +15,15 @@ export type Target =
       env?: Record<string, string>;
       cwd?: string;
       shell?: boolean;
+      /** Connection timeout in milliseconds (default: 5000) */
+      timeout?: number;
     }
   | {
       type: 'tcp';
       host: string;
       port: number;
       tls?: boolean;
+      /** Connection timeout in milliseconds (default: 5000) */
       timeout?: number;
     }
   | {
@@ -28,6 +31,8 @@ export type Target =
       url: string;
       headers?: Record<string, string>;
       protocols?: string[];
+      /** Connection timeout in milliseconds (default: 10000) */
+      timeout?: number;
     };
 
 /**
@@ -40,6 +45,8 @@ export interface ToolExpectation {
   outputSchemaRef?: string;
   description?: string;
   tags?: string[];
+  /** Whether the tool is expected to be deterministic (same input -> same output) */
+  deterministic?: boolean;
 }
 
 /**
