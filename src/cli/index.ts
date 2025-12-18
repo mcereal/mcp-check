@@ -3,7 +3,7 @@
  */
 
 import { Command } from 'commander';
-import chalk from 'chalk';
+import { colors } from './colors';
 import {
   loadConfig,
   resolveConfig,
@@ -77,7 +77,7 @@ export async function runCLI(): Promise<void> {
       try {
         await runTests(options);
       } catch (error) {
-        console.error(chalk.red('Error:'), error.message);
+        console.error(colors.red('Error:'), error.message);
         process.exit(1);
       }
     });
@@ -106,10 +106,10 @@ export async function runCLI(): Promise<void> {
           );
 
           console.log(
-            chalk.green(`\n✅ Created configuration file: ${options.output}`),
+            colors.green(`\n✅ Created configuration file: ${options.output}`),
           );
           console.log(
-            chalk.gray(
+            colors.gray(
               '\nRun "mcp-check test --config ' +
                 options.output +
                 '" to start testing.',
@@ -119,16 +119,16 @@ export async function runCLI(): Promise<void> {
           // Create default config
           await createDefaultConfig(options.output);
           console.log(
-            chalk.green(`Created configuration file: ${options.output}`),
+            colors.green(`Created configuration file: ${options.output}`),
           );
           console.log(
-            chalk.gray(
+            colors.gray(
               '\nTip: Run "mcp-check init --interactive" for a guided setup.',
             ),
           );
         }
       } catch (error) {
-        console.error(chalk.red('Error creating config:'), error.message);
+        console.error(colors.red('Error creating config:'), error.message);
         process.exit(1);
       }
     });
@@ -144,16 +144,16 @@ export async function runCLI(): Promise<void> {
         const validation = validateConfig(config);
 
         if (validation.valid) {
-          console.log(chalk.green('✓ Configuration is valid'));
+          console.log(colors.green('✓ Configuration is valid'));
         } else {
-          console.log(chalk.red('✗ Configuration is invalid:'));
+          console.log(colors.red('✗ Configuration is invalid:'));
           for (const error of validation.errors || []) {
-            console.log(chalk.red(`  - ${error}`));
+            console.log(colors.red(`  - ${error}`));
           }
           process.exit(1);
         }
       } catch (error) {
-        console.error(chalk.red('Error validating config:'), error.message);
+        console.error(colors.red('Error validating config:'), error.message);
         process.exit(1);
       }
     });
@@ -190,9 +190,9 @@ export async function runCLI(): Promise<void> {
         },
       ];
 
-      console.log(chalk.blue('Available test suites:'));
+      console.log(colors.blue('Available test suites:'));
       for (const suite of suites) {
-        console.log(`  ${chalk.green(suite.name)}: ${suite.description}`);
+        console.log(`  ${colors.green(suite.name)}: ${suite.description}`);
       }
     });
 
@@ -213,13 +213,13 @@ export async function runCLI(): Promise<void> {
         const fixtureList = await manager.list();
 
         if (fixtureList.length === 0) {
-          console.log(chalk.yellow('No fixtures found.'));
+          console.log(colors.yellow('No fixtures found.'));
           return;
         }
 
-        console.log(chalk.blue(`Found ${fixtureList.length} fixture(s):\n`));
+        console.log(colors.blue(`Found ${fixtureList.length} fixture(s):\n`));
         for (const fixture of fixtureList) {
-          console.log(`  ${chalk.green(fixture.id)}`);
+          console.log(`  ${colors.green(fixture.id)}`);
           console.log(`    Description: ${fixture.description}`);
           console.log(`    Created: ${fixture.timestamp}`);
           if (fixture.scenario?.toolName) {
@@ -228,7 +228,7 @@ export async function runCLI(): Promise<void> {
           console.log();
         }
       } catch (error) {
-        console.error(chalk.red('Error listing fixtures:'), error.message);
+        console.error(colors.red('Error listing fixtures:'), error.message);
         process.exit(1);
       }
     });
@@ -244,10 +244,10 @@ export async function runCLI(): Promise<void> {
         const manager = new FileFixtureManager(options.dir, logger);
         const fixture = await manager.load(id);
 
-        console.log(chalk.blue('Fixture Details:\n'));
+        console.log(colors.blue('Fixture Details:\n'));
         console.log(JSON.stringify(fixture, null, 2));
       } catch (error) {
-        console.error(chalk.red('Error loading fixture:'), error.message);
+        console.error(colors.red('Error loading fixture:'), error.message);
         process.exit(1);
       }
     });
@@ -266,12 +266,12 @@ export async function runCLI(): Promise<void> {
 
         const fixtureList = await manager.list();
         console.log(
-          chalk.green(
+          colors.green(
             `Exported ${fixtureList.length} fixture(s) to ${options.output}`,
           ),
         );
       } catch (error) {
-        console.error(chalk.red('Error exporting fixtures:'), error.message);
+        console.error(colors.red('Error exporting fixtures:'), error.message);
         process.exit(1);
       }
     });
@@ -295,14 +295,14 @@ export async function runCLI(): Promise<void> {
         const cleaned = await manager.cleanup(maxAgeMs);
 
         if (cleaned === 0) {
-          console.log(chalk.yellow('No fixtures to clean up.'));
+          console.log(colors.yellow('No fixtures to clean up.'));
         } else {
           console.log(
-            chalk.green(`Cleaned up ${cleaned} old fixture(s).`),
+            colors.green(`Cleaned up ${cleaned} old fixture(s).`),
           );
         }
       } catch (error) {
-        console.error(chalk.red('Error cleaning fixtures:'), error.message);
+        console.error(colors.red('Error cleaning fixtures:'), error.message);
         process.exit(1);
       }
     });
@@ -465,10 +465,10 @@ async function runTests(options: any): Promise<void> {
   checker.on('suite-complete', (result) => {
     const status =
       result.status === 'passed'
-        ? chalk.green('PASSED')
+        ? colors.green('PASSED')
         : result.status === 'failed'
-          ? chalk.red('FAILED')
-          : chalk.yellow('WARNING');
+          ? colors.red('FAILED')
+          : colors.yellow('WARNING');
 
     logger.info(`Suite ${result.name}: ${status} (${result.durationMs}ms)`);
   });
@@ -484,12 +484,12 @@ async function runTests(options: any): Promise<void> {
 
   // Display summary
   const { summary } = results;
-  console.log('\n' + chalk.blue('Test Results Summary:'));
+  console.log('\n' + colors.blue('Test Results Summary:'));
   console.log(`  Total: ${summary.total}`);
-  console.log(`  ${chalk.green('Passed')}: ${summary.passed}`);
-  console.log(`  ${chalk.red('Failed')}: ${summary.failed}`);
-  console.log(`  ${chalk.yellow('Skipped')}: ${summary.skipped}`);
-  console.log(`  ${chalk.yellow('Warnings')}: ${summary.warnings}`);
+  console.log(`  ${colors.green('Passed')}: ${summary.passed}`);
+  console.log(`  ${colors.red('Failed')}: ${summary.failed}`);
+  console.log(`  ${colors.yellow('Skipped')}: ${summary.skipped}`);
+  console.log(`  ${colors.yellow('Warnings')}: ${summary.warnings}`);
 
   // Generate reports
   await generateReports(results, finalConfig, logger);
@@ -543,11 +543,11 @@ async function generateReports(
       logger.info(`Generated ${report.format} report: ${filePath}`);
     }
 
-    console.log('\n' + chalk.blue('Reports Generated:'));
+    console.log('\n' + colors.blue('Reports Generated:'));
     for (const report of reports) {
       const filePath = `${config.reporting.outputDir}/${report.filename}`;
       console.log(
-        `  ${chalk.green('✓')} ${report.format.toUpperCase()}: ${filePath}`,
+        `  ${colors.green('✓')} ${report.format.toUpperCase()}: ${filePath}`,
       );
     }
   } catch (error) {

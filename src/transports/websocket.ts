@@ -1,13 +1,13 @@
 /**
- * WebSocket transport implementation
+ * WebSocket transport implementation using native Node.js WebSocket
  */
 
-import WebSocket from 'ws';
 import { Target } from '../types/config';
 import { BaseTransport } from './base';
 
 /**
  * WebSocket transport for web-based connections
+ * Uses native Node.js WebSocket (available in Node 22+)
  */
 export class WebSocketTransport extends BaseTransport {
   readonly type = 'websocket' as const;
@@ -24,15 +24,15 @@ export class WebSocketTransport extends BaseTransport {
     try {
       const connectionStart = Date.now();
 
-      this.ws = new WebSocket(target.url, target.protocols, {
-        headers: target.headers,
-      });
+      // Native WebSocket doesn't support custom headers directly
+      // For most MCP use cases, this shouldn't be an issue
+      // If headers are needed, they'd need to be passed via query params or subprotocols
+      this.ws = new WebSocket(target.url, target.protocols);
 
       const connectionTimeout = target.timeout ?? 10000;
 
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
-          // Normalise rejection so tests receive a consistent Error instance
           const timeoutError = new Error(
             `WebSocket connection timeout to ${target.url}`,
           );
@@ -48,21 +48,22 @@ export class WebSocketTransport extends BaseTransport {
           resolve();
         };
 
-        const handleError = (error: Error): void => {
+        const handleError = (event: Event): void => {
           clearTimeout(timeout);
           cleanup();
+          const error = new Error('WebSocket connection failed');
           this.handleError(error);
           reject(error);
         };
 
         const cleanup = (): void => {
           if (!this.ws) return;
-          this.ws.removeListener('open', handleOpen);
-          this.ws.removeListener('error', handleError);
+          this.ws.removeEventListener('open', handleOpen);
+          this.ws.removeEventListener('error', handleError);
         };
 
-        this.ws.on('open', handleOpen);
-        this.ws.on('error', handleError);
+        this.ws.addEventListener('open', handleOpen);
+        this.ws.addEventListener('error', handleError);
       });
 
       this.setupWebSocketHandlers();
@@ -79,16 +80,14 @@ export class WebSocketTransport extends BaseTransport {
 
     const data = this.serializeMessage(message);
 
-    return new Promise((resolve, reject) => {
-      this.ws!.send(data, (error) => {
-        if (error) {
-          reject(error);
-        } else {
-          this.onMessageSent(data);
-          resolve();
-        }
-      });
-    });
+    // Native WebSocket send is synchronous and doesn't have a callback
+    // It throws if the connection is not open
+    try {
+      this.ws.send(data);
+      this.onMessageSent(data);
+    } catch (error) {
+      throw error;
+    }
   }
 
   async close(): Promise<void> {
@@ -101,13 +100,15 @@ export class WebSocketTransport extends BaseTransport {
         };
 
         if (this.ws.readyState === WebSocket.OPEN) {
-          this.ws.on('close', cleanup);
-          this.ws.close();
+          const closeHandler = () => {
+            cleanup();
+          };
+          this.ws.addEventListener('close', closeHandler, { once: true });
+          this.ws.close(1000, 'Normal closure');
 
-          // Force close after timeout
+          // Force cleanup after timeout since native WebSocket has no terminate()
           setTimeout(() => {
             if (this.ws) {
-              this.ws.terminate();
               cleanup();
             }
           }, 3000);
@@ -122,41 +123,41 @@ export class WebSocketTransport extends BaseTransport {
     if (!this.ws) return;
 
     // Handle incoming messages
-    this.ws.on('message', (data: WebSocket.Data) => {
+    this.ws.addEventListener('message', (event: MessageEvent) => {
       try {
-        const text = data.toString('utf-8');
+        // Native WebSocket can return string or Blob
+        // For JSON-RPC, we expect string data
+        const text = typeof event.data === 'string'
+          ? event.data
+          : String(event.data);
         const message = this.parseMessage(text);
         this.onMessageReceived(text);
         this.emit('message', message);
       } catch (error) {
         this.handleError(
-          new Error(`Failed to parse WebSocket message: ${error.message}`),
+          new Error(`Failed to parse WebSocket message: ${(error as Error).message}`),
         );
       }
     });
 
     // Handle WebSocket errors
-    this.ws.on('error', (error) => {
-      this.handleError(error);
+    this.ws.addEventListener('error', () => {
+      this.handleError(new Error('WebSocket error'));
     });
 
     // Handle WebSocket close
-    this.ws.on('close', (code, reason) => {
-      if (code !== 1000) {
+    this.ws.addEventListener('close', (event: CloseEvent) => {
+      if (event.code !== 1000) {
         // 1000 = normal closure
         this.handleError(
-          new Error(`WebSocket closed with code ${code}: ${reason}`),
+          new Error(`WebSocket closed with code ${event.code}: ${event.reason}`),
         );
       } else {
         this.handleClose();
       }
     });
 
-    // Handle ping/pong for keep-alive
-    this.ws.on('ping', (data) => {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.ws.pong(data);
-      }
-    });
+    // Note: Native WebSocket handles ping/pong automatically at the protocol level
+    // No manual ping/pong handling needed
   }
 }

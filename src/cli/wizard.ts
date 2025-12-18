@@ -3,7 +3,7 @@
  */
 
 import * as readline from 'readline';
-import chalk from 'chalk';
+import { colors } from './colors';
 import { CheckConfig } from '../types/config';
 
 interface WizardOptions {
@@ -47,7 +47,7 @@ async function select(
 ): Promise<string> {
   console.log(question);
   options.forEach((opt, i) => {
-    const marker = i === defaultIndex ? chalk.cyan('→') : ' ';
+    const marker = i === defaultIndex ? colors.cyan('→') : ' ';
     console.log(`  ${marker} ${i + 1}. ${opt}`);
   });
 
@@ -71,7 +71,7 @@ async function multiSelect(
 ): Promise<string[]> {
   console.log(question);
   options.forEach((opt, i) => {
-    const checked = defaults.includes(opt) ? chalk.green('✓') : ' ';
+    const checked = defaults.includes(opt) ? colors.green('✓') : ' ';
     console.log(`  ${checked} ${i + 1}. ${opt}`);
   });
 
@@ -111,19 +111,19 @@ async function confirm(
 export async function runWizard(options: WizardOptions): Promise<CheckConfig> {
   const rl = createReadline();
 
-  console.log(chalk.blue('\n🔧 MCP Check Configuration Wizard\n'));
+  console.log(colors.blue('\n🔧 MCP Check Configuration Wizard\n'));
   console.log(
-    chalk.gray(
+    colors.gray(
       'This wizard will help you create a configuration file for testing your MCP server.',
     ),
   );
   console.log(
-    chalk.gray('Press Enter to accept default values shown in parentheses.\n'),
+    colors.gray('Press Enter to accept default values shown in parentheses.\n'),
   );
 
   try {
     // Step 1: Transport type
-    console.log(chalk.yellow('\n📡 Step 1: Transport Configuration\n'));
+    console.log(colors.yellow('\n📡 Step 1: Transport Configuration\n'));
 
     const transportType = await select(
       rl,
@@ -166,7 +166,7 @@ export async function runWizard(options: WizardOptions): Promise<CheckConfig> {
     }
 
     // Step 2: Expected capabilities
-    console.log(chalk.yellow('\n🎯 Step 2: Server Capabilities\n'));
+    console.log(colors.yellow('\n🎯 Step 2: Server Capabilities\n'));
 
     const capabilities = await multiSelect(
       rl,
@@ -211,7 +211,7 @@ export async function runWizard(options: WizardOptions): Promise<CheckConfig> {
     }
 
     // Step 4: Test suites
-    console.log(chalk.yellow('\n🧪 Step 3: Test Suites\n'));
+    console.log(colors.yellow('\n🧪 Step 3: Test Suites\n'));
 
     const suites = await multiSelect(
       rl,
@@ -228,7 +228,7 @@ export async function runWizard(options: WizardOptions): Promise<CheckConfig> {
     );
 
     // Step 5: Timeouts
-    console.log(chalk.yellow('\n⏱️  Step 4: Timeouts\n'));
+    console.log(colors.yellow('\n⏱️  Step 4: Timeouts\n'));
 
     const customTimeouts = await confirm(
       rl,
@@ -251,7 +251,7 @@ export async function runWizard(options: WizardOptions): Promise<CheckConfig> {
     }
 
     // Step 6: Chaos engineering
-    console.log(chalk.yellow('\n🌪️  Step 5: Chaos Engineering\n'));
+    console.log(colors.yellow('\n🌪️  Step 5: Chaos Engineering\n'));
 
     const enableChaos = await confirm(
       rl,
@@ -283,7 +283,7 @@ export async function runWizard(options: WizardOptions): Promise<CheckConfig> {
     }
 
     // Step 7: Reporting
-    console.log(chalk.yellow('\n📊 Step 6: Reporting\n'));
+    console.log(colors.yellow('\n📊 Step 6: Reporting\n'));
 
     const formats = await multiSelect(
       rl,
@@ -314,8 +314,8 @@ export async function runWizard(options: WizardOptions): Promise<CheckConfig> {
     rl.close();
 
     // Summary
-    console.log(chalk.green('\n✅ Configuration Summary:\n'));
-    console.log(chalk.gray(JSON.stringify(config, null, 2)));
+    console.log(colors.green('\n✅ Configuration Summary:\n'));
+    console.log(colors.gray(JSON.stringify(config, null, 2)));
 
     return config;
   } catch (error) {
