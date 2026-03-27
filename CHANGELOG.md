@@ -1,3 +1,10 @@
+## [1.0.8](https://github.com/mcereal/mcp-check/compare/v1.0.7...v1.0.8) (2026-03-27)
+
+
+### Bug Fixes
+
+* success rate, cli defaults, auto-capture, validation, error categories ([235cfb4](https://github.com/mcereal/mcp-check/commit/235cfb42c4c616a303bf83fcd0b27c7142a14818))
+
 ## [1.0.7](https://github.com/mcereal/mcp-check/compare/v1.0.6...v1.0.7) (2026-03-27)
 
 
