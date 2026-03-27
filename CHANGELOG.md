@@ -1,3 +1,11 @@
+## [1.0.10](https://github.com/mcereal/mcp-check/compare/v1.0.9...v1.0.10) (2026-03-27)
+
+
+### Bug Fixes
+
+* init clobbering ([b7e8b9e](https://github.com/mcereal/mcp-check/commit/b7e8b9e97d499465d673e41cfd12009229a7a5d5))
+* parrallelism ([b1fd65c](https://github.com/mcereal/mcp-check/commit/b1fd65c652e83237bc7d9ed34fca8de3a121810f))
+
 ## [1.0.9](https://github.com/mcereal/mcp-check/compare/v1.0.8...v1.0.9) (2026-03-27)
 
 
