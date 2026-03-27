@@ -227,47 +227,113 @@
             "description": "Chaos engineering configuration",
             "properties": {
                 "enable": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "Enable chaos injection. Default: false."
                 },
                 "seed": {
-                    "type": "integer"
+                    "type": "integer",
+                    "description": "Seed for reproducible chaos patterns."
+                },
+                "intensity": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Global chaos probability (0.0-1.0). Overridden by --chaos-intensity CLI flag."
                 },
                 "network": {
                     "type": "object",
+                    "description": "Network chaos: delays, drops, duplication, reordering, corruption.",
                     "properties": {
                         "delayMs": {
                             "type": "array",
-                            "items": {
-                                "type": "integer",
-                                "minimum": 0
-                            },
+                            "items": { "type": "integer", "minimum": 0 },
                             "minItems": 2,
-                            "maxItems": 2
+                            "maxItems": 2,
+                            "description": "Random delay range [min, max] in milliseconds."
                         },
                         "dropProbability": {
-                            "type": "number",
-                            "minimum": 0,
-                            "maximum": 1
+                            "type": "number", "minimum": 0, "maximum": 1,
+                            "description": "Probability of dropping a message."
                         },
                         "duplicateProbability": {
-                            "type": "number",
-                            "minimum": 0,
-                            "maximum": 1
+                            "type": "number", "minimum": 0, "maximum": 1,
+                            "description": "Probability of duplicating a message."
+                        },
+                        "reorderProbability": {
+                            "type": "number", "minimum": 0, "maximum": 1,
+                            "description": "Probability of reordering messages."
+                        },
+                        "corruptProbability": {
+                            "type": "number", "minimum": 0, "maximum": 1,
+                            "description": "Probability of corrupting message data."
                         }
                     }
                 },
                 "protocol": {
                     "type": "object",
+                    "description": "Protocol chaos: malformed JSON, unexpected messages, schema violations.",
                     "properties": {
                         "injectAbortProbability": {
-                            "type": "number",
-                            "minimum": 0,
-                            "maximum": 1
+                            "type": "number", "minimum": 0, "maximum": 1,
+                            "description": "Probability of injecting connection abort."
                         },
                         "malformedJsonProbability": {
-                            "type": "number",
-                            "minimum": 0,
-                            "maximum": 1
+                            "type": "number", "minimum": 0, "maximum": 1,
+                            "description": "Probability of sending malformed JSON."
+                        },
+                        "unexpectedMessageProbability": {
+                            "type": "number", "minimum": 0, "maximum": 1,
+                            "description": "Probability of injecting unexpected message types."
+                        },
+                        "invalidSchemaProbability": {
+                            "type": "number", "minimum": 0, "maximum": 1,
+                            "description": "Probability of sending schema-violating messages."
+                        }
+                    }
+                },
+                "stream": {
+                    "type": "object",
+                    "description": "Stream chaos: chunk jitter, reordering, duplication, splitting.",
+                    "properties": {
+                        "chunkJitterMs": {
+                            "type": "array",
+                            "items": { "type": "integer", "minimum": 0 },
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "description": "Random delay range [min, max] between stream chunks."
+                        },
+                        "reorderProbability": {
+                            "type": "number", "minimum": 0, "maximum": 1
+                        },
+                        "duplicateChunkProbability": {
+                            "type": "number", "minimum": 0, "maximum": 1
+                        },
+                        "splitChunkProbability": {
+                            "type": "number", "minimum": 0, "maximum": 1
+                        }
+                    }
+                },
+                "timing": {
+                    "type": "object",
+                    "description": "Timing chaos: clock skew, processing delays, timeout reduction.",
+                    "properties": {
+                        "clockSkewMs": {
+                            "type": "array",
+                            "items": { "type": "integer" },
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "description": "Clock skew range [min, max] in milliseconds."
+                        },
+                        "processingDelayMs": {
+                            "type": "array",
+                            "items": { "type": "integer", "minimum": 0 },
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "description": "Random processing delay range [min, max]."
+                        },
+                        "timeoutReductionFactor": {
+                            "type": "number", "minimum": 0, "maximum": 1,
+                            "description": "Factor to reduce effective timeouts (0.0-1.0)."
                         }
                     }
                 }
@@ -305,6 +371,13 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "patterns": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "description": "Regex patterns to match and redact sensitive values."
                         }
                     }
                 }
@@ -316,11 +389,53 @@
             "properties": {
                 "maxConcurrentTests": {
                     "type": "integer",
-                    "minimum": 1
+                    "minimum": 0,
+                    "description": "Max test suites to run concurrently. 0 = unlimited."
                 },
                 "maxConcurrentConnections": {
                     "type": "integer",
                     "minimum": 1
+                }
+            }
+        },
+        "testParameters": {
+            "type": "object",
+            "description": "Parameters for test suite behavior",
+            "properties": {
+                "maxUnexpectedTools": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Max unexpected tools to test beyond expected list. Default: 3."
+                },
+                "maxResourcesToTest": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Max resources to read in large-payload tests. Default: 5."
+                },
+                "rapidRequestCount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Number of rapid concurrent requests in streaming tests. Default: 10."
+                },
+                "concurrentRequestCount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Number of concurrent requests in timeout/streaming tests. Default: 3."
+                },
+                "testIterations": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Iterations for progressive and memory tests. Default: 10."
+                },
+                "payloadSizes": {
+                    "type": "array",
+                    "items": { "type": "integer", "minimum": 1 },
+                    "description": "Payload sizes in bytes for large-payload tests. Default: [1024, 10240, 102400]."
+                },
+                "memoryGrowthThresholdMB": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Max heap growth in MB before warning. Default: 10."
                 }
             }
         }

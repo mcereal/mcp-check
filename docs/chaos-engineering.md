@@ -4,7 +4,7 @@ The chaos engineering system in MCP-Check allows you to inject controlled failur
 
 ## Overview
 
-Chaos engineering works by intercepting messages and connections at various layers and introducing realistic disruptions:
+Chaos engineering works by wrapping the MCP SDK transport layer (`ChaosSDKTransport`) to intercept all messages between the test client and the server under test. Each test suite gets its own chaos-wrapped connection, so parallel execution is fully supported.
 
 - **Network Chaos**: Simulates network issues like latency, packet loss, and corruption
 - **Protocol Chaos**: Injects MCP protocol violations like malformed JSON or unexpected messages

@@ -27,7 +27,14 @@
             {
                 "name": "getWeather",
                 "required": false,
-                "description": "Get weather information"
+                "description": "Get weather information",
+                "deterministic": false
+            },
+            {
+                "name": "deleteRecord",
+                "required": false,
+                "description": "Delete a database record",
+                "readOnly": false
             }
         ],
         "resources": [

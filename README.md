@@ -1,122 +1,259 @@
 # MCP Check
 
-MCP Check is a conformance and reliability harness for Model Context Protocol (MCP) servers and clients. It bundles transport adapters, canonical test suites, chaos engineering hooks, and rich reporting so tool builders can validate that their MCP implementations behave the way agents expect.
+Conformance testing, chaos engineering, and reporting for [Model Context Protocol](https://modelcontextprotocol.io) (MCP) servers.
 
----
+MCP Check validates that your MCP server behaves the way AI agents expect: correct handshakes, proper tool schemas, resilient error handling, and graceful behavior under failure conditions.
 
-## Why MCP Check?
+## Features
 
-- **Turnkey conformance runs** – ship-ready suites for handshake, tool discovery, tool invocation, and streaming behaviours.
-- **Configurable transports** – connect to MCP targets over stdio, TCP sockets, or WebSockets with a single config file.
-- **Chaos engineering** – flip on deterministic fault injection to harden servers before users discover the edge cases.
-- **Comprehensive reporting** – JSON, HTML, JUnit, and badge outputs plus fixture capture and optional telemetry export.
-- **Extensible by design** – plug in custom suites, reporters, transports, or chaos plugins without forking the core.
+- **6 built-in test suites** covering handshake, tool discovery, tool invocation, streaming, timeouts, and large payloads
+- **Chaos engineering** with 4 fault injection plugins (network, protocol, stream, timing) and seeded reproducibility
+- **4 report formats** (HTML, JSON, JUnit XML, shields.io badge) with fixture capture for failure reproduction
+- **Parallel execution** for faster test runs with configurable concurrency
+- **Safe by default** with `readOnly` and `deterministic` tool annotations to prevent side effects during testing
 
-## Getting Started
+## Requirements
 
-```bash
-git clone https://github.com/mcereal/mcp-check.git
-cd mcp-check
-npm install
-npm run build
+- Node.js >= 22.0.0
+- npm >= 10.0.0
 
-# Run the CLI locally
-node ./bin/mcp-check.js test --help
-```
-
-You can also execute the development build via `npx`:
+## Quick Start
 
 ```bash
-npx ts-node src/cli/index.ts test --config examples/basic-stdio.config.json
+# Install
+npm install -D @mcereal/mcp-check
+
+# Create a config file
+npx mcp-check init
+
+# Run tests
+npx mcp-check test --config mcp-check.config.json
 ```
 
-> **Prerequisites:** Node.js 20+ and npm 10+. The CLI depends on the official [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk).
+## Configuration
 
-## Quick Tour
+Create `mcp-check.config.json` in your project root:
 
-- `src/core` – orchestration layer for configuration loading, result aggregation, and lifecycle events.
-- `src/transports` – adapters for stdio, TCP, and WebSocket targets plus a factory used by the CLI.
-- `src/suites` – built-in conformance suites covering handshake, tool discovery, tool invocation, and streaming scenarios.
-- `src/chaos` – deterministic chaos controller, presets, and plugin hooks for failure injection.
-- `src/reporting` – report manager, format-specific emitters, fixture capture, and telemetry integrations.
-- `docs/` – deeper guides on [chaos engineering](docs/chaos-engineering.md) and [reporting](docs/reporting.md).
-- `examples/` – sample configuration files and workflows (kept in sync as features evolve).
+```json
+{
+  "$schema": "node_modules/@mcereal/mcp-check/schemas/mcp-check.config.schema.json",
+  "target": {
+    "type": "stdio",
+    "command": "node",
+    "args": ["dist/server.js"],
+    "cwd": "."
+  },
+  "expectations": {
+    "capabilities": ["tools", "resources"],
+    "tools": [
+      { "name": "my-tool", "required": true, "description": "My tool" },
+      { "name": "dangerous-tool", "required": true, "readOnly": false },
+      { "name": "live-data-tool", "required": true, "deterministic": false }
+    ],
+    "resources": [
+      { "uri": "file://docs/", "name": "Documentation" }
+    ]
+  },
+  "suites": "all",
+  "timeouts": {
+    "connectMs": 5000,
+    "invokeMs": 15000,
+    "shutdownMs": 3000,
+    "streamMs": 30000
+  },
+  "chaos": {
+    "enable": false,
+    "seed": 42,
+    "intensity": 0.1,
+    "network": {
+      "delayMs": [0, 100],
+      "dropProbability": 0.01,
+      "duplicateProbability": 0.005
+    },
+    "protocol": {
+      "injectAbortProbability": 0.005,
+      "malformedJsonProbability": 0.001
+    },
+    "timing": {
+      "clockSkewMs": [-1000, 1000],
+      "processingDelayMs": [0, 100]
+    }
+  },
+  "reporting": {
+    "formats": ["html", "json", "junit"],
+    "outputDir": "./reports",
+    "includeFixtures": true
+  },
+  "parallelism": {
+    "maxConcurrentTests": 6,
+    "maxConcurrentConnections": 6
+  }
+}
+```
 
-## Running Tests Against Your MCP Target
+### Transport Types
 
-1. Create an MCP configuration describing how to launch or connect to your server:
+| Type | Config | Description |
+|------|--------|-------------|
+| `stdio` | `command`, `args`, `env`, `cwd` | Spawns server as child process (recommended) |
+| `tcp` | `host`, `port`, `tls` | TCP socket connection |
+| `websocket` | `url`, `headers`, `protocols` | WebSocket connection |
 
-   ```jsonc
-   {
-     "$schema": "./schemas/mcp-check.config.schema.json",
-     "target": {
-       "type": "stdio",
-       "command": "node",
-       "args": ["./examples/echo-server.js"],
-     },
-     "reporting": {
-       "formats": ["json", "html", "junit"],
-       "outputDir": "./reports",
-     },
-   }
-   ```
+### Tool Expectations
 
-2. Run the conformance suite:
+Mark tools to control test behavior:
 
-   ```bash
-   node ./bin/mcp-check.js test --config my-mcp.config.json --verbose
-   ```
+- **`readOnly: false`** — Tool has side effects (creates, updates, deletes data). Invocation tests are skipped to prevent unintended changes during testing.
+- **`deterministic: false`** — Tool returns different results on repeated calls (live data, timestamps, etc.). Deterministic behavior tests are skipped.
 
-3. Inspect the generated reports in `./reports` (fixtures are included when enabled).
+Both default to `true` (safe to invoke, expected to be deterministic).
 
-### Selecting Suites
+## CLI Reference
 
-Pass a comma-separated list to `--suites` to restrict execution, e.g. `--suites handshake,tool-invocation`. Use `node ./bin/mcp-check.js list-suites` to see everything that ships with MCP Check.
-
-### Chaos Engineering
-
-Chaos injection is disabled by default. Enable and tune it via CLI flags or configuration:
+### Commands
 
 ```bash
-node ./bin/mcp-check.js test \
-  --config my-mcp.config.json \
-  --chaos-intensity medium \
-  --chaos-network \
-  --chaos-protocol
+mcp-check test [options]       # Run conformance tests
+mcp-check init [options]       # Create configuration file
+mcp-check validate [options]   # Validate configuration file
+mcp-check list-suites          # List available test suites
+mcp-check fixtures <command>   # Manage test fixtures
 ```
 
-Refer to [docs/chaos-engineering.md](docs/chaos-engineering.md) for the complete option matrix and plugin API.
+### Test Options
 
-### Reporting
+```
+-c, --config <path>        Configuration file path
+-s, --suites <suites>      Comma-separated suites (e.g., handshake,tool-invocation)
+-f, --format <formats>     Output formats (json,html,junit,badge)
+-o, --output-dir <dir>     Output directory for reports
+--parallel                 Run test suites in parallel
+--max-concurrent <n>       Max concurrent suites (default: all)
+--strict                   Fail on unexpected capabilities
+--fail-fast                Stop on first suite failure
+--chaos-seed <seed>        Seed for reproducible chaos
+--chaos-intensity <level>  low, medium, high, or extreme
+--chaos-network            Enable network chaos
+--chaos-protocol           Enable protocol chaos
+--chaos-timing             Enable timing chaos
+--no-chaos                 Disable all chaos
+--timeout.connect <ms>     Connection timeout
+--timeout.invoke <ms>      Invocation timeout
+--verbose                  Verbose logging
+--debug <patterns>         Debug patterns (e.g., mcp:*)
+```
 
-The report manager can emit `json`, `html`, `junit`, and `badge` formats in parallel and optionally produce fixtures or telemetry. Learn more in [docs/reporting.md](docs/reporting.md).
+### Fixture Commands
 
-## Configuration Reference
+```bash
+mcp-check fixtures list                  # List saved fixtures
+mcp-check fixtures show <id>             # Show fixture details
+mcp-check fixtures export --output <dir> # Export fixtures
+mcp-check fixtures cleanup --max-age 7   # Remove old fixtures (days)
+```
 
-- Generate a baseline file with `node ./bin/mcp-check.js init`.
-- Validate changes before running tests using `node ./bin/mcp-check.js validate --config my-mcp.config.json`.
-- Schemas live in `schemas/` to support editor IntelliSense and automation.
+## Test Suites
 
-## Local Development
+| Suite | Tests | Description |
+|-------|-------|-------------|
+| `handshake` | 5 | Protocol initialization, capability negotiation, ping, tool/resource discovery |
+| `tool-discovery` | 6 | Tool enumeration, required tools validation, JSON Schema validation, resource discovery |
+| `tool-invocation` | 3/tool | Basic invocation, input validation, deterministic behavior (per expected tool) |
+| `streaming` | 4 | Rapid requests, long-running operations, concurrent calls, resource streaming |
+| `timeout` | 5 | Connection timeout, invocation timeout, concurrent timeouts, recovery, progressive timing |
+| `large-payload` | 5 | Large inputs (1KB-100KB), large outputs, complex JSON, memory stability, resource content |
 
-- Run unit tests: `npm test` (Jest).
-- Lint and format: `npm run lint` / `npm run lint:fix` / `npm run format`.
-- Build TypeScript outputs: `npm run build`.
+## Parallel Execution
 
-Key directories to explore:
+Run suites concurrently for faster results. Each suite spawns its own isolated server process.
 
-- `tests/` – Jest suites covering transports, reporting pipelines, and suite behaviours.
-- `examples/` – canonical MCP targets and configs for manual or CI validation.
-- `bin/` – packaged CLI shim targeting the compiled TypeScript output in `dist/`.
+```bash
+# All suites in parallel
+npx mcp-check test --config mcp-check.config.json --parallel
 
-## Contributing
+# Cap concurrency
+npx mcp-check test --config mcp-check.config.json --parallel --max-concurrent 3
+```
 
-We welcome experimentation while the project is in flux. Please review [CONTRIBUTING.md](CONTRIBUTING.md) and open an issue or PR to discuss new suites, transport adapters, or integrations.
+Output includes parallel indicator:
+```
+Total: 155  (96.7% pass rate, 45.2s)  [parallel, max all]
+```
 
-## Roadmap & Support
+## Chaos Engineering
 
-- Track feature progress and upcoming work in [docs/roadmap.md](docs/roadmap.md).
-- Security concerns? Follow our [Security Policy](SECURITY.md).
-- Funding and sponsorship opportunities are listed in `package.json`.
+Inject controlled failures to validate server resilience. Chaos is disabled by default.
 
-If you are building MCP tooling and want something that is not yet covered, open an issue describing your use case—we’re iterating actively and feedback helps prioritize the next wave of work.
+```bash
+# Light chaos for CI
+npx mcp-check test --chaos-intensity low --chaos-seed 42
+
+# Aggressive stress testing
+npx mcp-check test --chaos-intensity high --chaos-seed 42
+
+# Target specific failure modes
+npx mcp-check test --chaos-network --chaos-protocol
+```
+
+**Intensity levels:** `low` (5%), `medium` (10%), `high` (30%), `extreme` (50%)
+
+**Plugins:**
+- **Network** — delays, packet drops, duplication, reordering, corruption
+- **Protocol** — malformed JSON, unexpected messages, schema violations, connection aborts
+- **Stream** — chunk jitter, reordering, duplication, message splitting
+- **Timing** — clock skew, processing delays, timeout reduction
+
+Seeds ensure reproducible chaos patterns across runs. See [docs/chaos-engineering.md](docs/chaos-engineering.md) for the full configuration reference.
+
+## Reporting
+
+```bash
+npx mcp-check test --format html,json,junit,badge --output-dir ./reports
+```
+
+| Format | File | Description |
+|--------|------|-------------|
+| `html` | `index.html` | Interactive report with charts, expandable suites, test details |
+| `json` | `results.json` | Machine-readable results with performance analytics |
+| `junit` | `junit.xml` | Standard JUnit XML for CI/CD integration |
+| `badge` | `badge.json` | shields.io compatible badge data |
+
+## CI Integration
+
+### GitHub Actions
+
+```yaml
+- name: Test MCP Server
+  uses: mcereal/mcp-check@v1
+  with:
+    config: mcp-check.config.json
+    formats: json,junit
+    chaos-enabled: true
+    chaos-intensity: low
+```
+
+Or run directly:
+
+```yaml
+- name: Test MCP Server
+  run: npx @mcereal/mcp-check test --config mcp-check.config.json --parallel
+```
+
+See [docs/github-action.md](docs/github-action.md) for the full action reference.
+
+## Development
+
+```bash
+npm test              # Run unit tests (Jest)
+npm run build         # Compile TypeScript
+npm run lint          # Lint
+npm run format        # Format
+```
+
+## Links
+
+- [Chaos Engineering Guide](docs/chaos-engineering.md)
+- [Reporting Guide](docs/reporting.md)
+- [GitHub Action Reference](docs/github-action.md)
+- [Roadmap](docs/roadmap.md)
+- [npm Package](https://www.npmjs.com/package/@mcereal/mcp-check)
