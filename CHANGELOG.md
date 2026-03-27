@@ -1,3 +1,10 @@
+## [1.0.9](https://github.com/mcereal/mcp-check/compare/v1.0.8...v1.0.9) (2026-03-27)
+
+
+### Bug Fixes
+
+* chaos engineering via transport implementation ([f12804e](https://github.com/mcereal/mcp-check/commit/f12804e24b2df9a9c8d937abb8f68f1b41980eac))
+
 ## [1.0.8](https://github.com/mcereal/mcp-check/compare/v1.0.7...v1.0.8) (2026-03-27)
 
 
