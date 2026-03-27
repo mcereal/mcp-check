@@ -114,6 +114,17 @@ export async function runCLI(): Promise<void> {
             ),
           );
         } else {
+          // Check if config already exists
+          const fs = await import('fs');
+          if (fs.existsSync(options.output)) {
+            console.error(
+              colors.red(`Configuration file already exists: ${options.output}`),
+            );
+            console.log(
+              colors.gray('Use --output <path> to create at a different location, or delete the existing file first.'),
+            );
+            process.exit(1);
+          }
           // Create default config
           await createDefaultConfig(options.output);
           console.log(
