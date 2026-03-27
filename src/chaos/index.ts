@@ -25,8 +25,10 @@ export { ProtocolChaosPlugin } from './protocol-chaos';
 export { StreamChaosPlugin } from './stream-chaos';
 export { TimingChaosPlugin } from './timing-chaos';
 
-// Transport wrapper
+// Transport wrappers
 export { ChaosTransport } from './transport';
+export { ChaosSDKTransport } from './sdk-transport';
+export type { ChaosStats } from './sdk-transport';
 
 // Factory for easy setup
 export { ChaosFactory } from './factory';

@@ -62,11 +62,14 @@ export class MCPTestClient {
   private sdkTransport?: SDKTransport;
   private initialized = false;
   private notificationHandlers: ((message: any) => void)[] = [];
+  private chaosController?: import('../types/chaos').ChaosController;
 
   constructor(
     private logger: Logger,
+    chaos?: import('../types/chaos').ChaosController,
     private clientInfo = { name: 'mcp-check', version: '1.0.0' },
   ) {
+    this.chaosController = chaos;
     this.client = new Client(this.clientInfo, {
       capabilities: {
         experimental: {},
@@ -171,6 +174,17 @@ export class MCPTestClient {
         );
     }
 
+    // Wrap SDK transport with chaos injection if controller is active
+    if (this.chaosController) {
+      const { ChaosSDKTransport } = await import('../chaos/sdk-transport');
+      this.sdkTransport = new ChaosSDKTransport(
+        this.sdkTransport!,
+        this.chaosController,
+        this.logger,
+      );
+      this.logger.debug('Chaos: wrapped SDK transport with ChaosSDKTransport');
+    }
+
     await this.connect();
   }
 
@@ -179,7 +193,16 @@ export class MCPTestClient {
    */
   async connectWithCustomTransport(transport: Transport): Promise<void> {
     // Bridge your custom transport to SDK transport interface
-    this.sdkTransport = new TransportAdapter(transport);
+    let adapted: SDKTransport = new TransportAdapter(transport);
+
+    // Wrap with chaos injection if controller is active
+    if (this.chaosController) {
+      const { ChaosSDKTransport } = await import('../chaos/sdk-transport');
+      adapted = new ChaosSDKTransport(adapted, this.chaosController, this.logger);
+      this.logger.debug('Chaos: wrapped custom transport with ChaosSDKTransport');
+    }
+
+    this.sdkTransport = adapted;
 
     // Setup event bridging
     transport.on('message', (message) => {

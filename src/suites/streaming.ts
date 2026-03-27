@@ -42,7 +42,7 @@ export class StreamingTestSuite implements TestSuitePlugin {
     const cases = [];
 
     try {
-      const client = new MCPTestClient(context.logger);
+      const client = new MCPTestClient(context.logger, context.chaos);
 
       // Try direct SDK transport first, fallback to custom transport adapter
       try {

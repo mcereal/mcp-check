@@ -47,7 +47,7 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     const cases = [];
 
     try {
-      const client = new MCPTestClient(context.logger);
+      const client = new MCPTestClient(context.logger, context.chaos);
 
       // Try direct SDK transport first, fallback to custom transport adapter
       try {
@@ -360,7 +360,7 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
 
     try {
       // Create a client for timeout testing
-      const timeoutClient = new MCPTestClient(context.logger);
+      const timeoutClient = new MCPTestClient(context.logger, context.chaos);
 
       // Connect using the same approach as main client
       try {

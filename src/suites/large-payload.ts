@@ -84,7 +84,7 @@ export class LargePayloadTestSuite implements TestSuitePlugin {
     const testName = 'large-input-payload';
 
     try {
-      const client = new MCPTestClient(context.logger);
+      const client = new MCPTestClient(context.logger, context.chaos);
 
       try {
         await client.connectFromTarget(context.config.target);
@@ -198,7 +198,7 @@ export class LargePayloadTestSuite implements TestSuitePlugin {
     const testName = 'large-output-payload';
 
     try {
-      const client = new MCPTestClient(context.logger);
+      const client = new MCPTestClient(context.logger, context.chaos);
 
       try {
         await client.connectFromTarget(context.config.target);
@@ -276,7 +276,7 @@ export class LargePayloadTestSuite implements TestSuitePlugin {
     const testName = 'large-json-structure';
 
     try {
-      const client = new MCPTestClient(context.logger);
+      const client = new MCPTestClient(context.logger, context.chaos);
 
       try {
         await client.connectFromTarget(context.config.target);
@@ -393,7 +393,7 @@ export class LargePayloadTestSuite implements TestSuitePlugin {
     const testName = 'memory-stability';
 
     try {
-      const client = new MCPTestClient(context.logger);
+      const client = new MCPTestClient(context.logger, context.chaos);
 
       try {
         await client.connectFromTarget(context.config.target);
@@ -479,7 +479,7 @@ export class LargePayloadTestSuite implements TestSuitePlugin {
     const testName = 'resource-content-size';
 
     try {
-      const client = new MCPTestClient(context.logger);
+      const client = new MCPTestClient(context.logger, context.chaos);
 
       try {
         await client.connectFromTarget(context.config.target);

@@ -44,7 +44,7 @@ export class HandshakeTestSuite implements TestSuitePlugin {
 
     // Test case 1: Basic connection establishment using SDK
     try {
-      const client = new MCPTestClient(context.logger);
+      const client = new MCPTestClient(context.logger, context.chaos);
 
       const connectionStart = Date.now();
 

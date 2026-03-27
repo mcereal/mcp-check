@@ -90,7 +90,7 @@ export class TimeoutTestSuite implements TestSuitePlugin {
     const testName = 'connection-timeout-behavior';
 
     try {
-      const client = new MCPTestClient(context.logger);
+      const client = new MCPTestClient(context.logger, context.chaos);
 
       // Test that connection completes within configured timeout
       const connectTimeout = context.config.timeouts?.connectMs || 5000;
@@ -145,7 +145,7 @@ export class TimeoutTestSuite implements TestSuitePlugin {
     const testName = 'invocation-timeout-behavior';
 
     try {
-      const client = new MCPTestClient(context.logger);
+      const client = new MCPTestClient(context.logger, context.chaos);
 
       try {
         await client.connectFromTarget(context.config.target);
@@ -225,7 +225,7 @@ export class TimeoutTestSuite implements TestSuitePlugin {
     const testName = 'concurrent-timeout-handling';
 
     try {
-      const client = new MCPTestClient(context.logger);
+      const client = new MCPTestClient(context.logger, context.chaos);
 
       try {
         await client.connectFromTarget(context.config.target);
@@ -296,7 +296,7 @@ export class TimeoutTestSuite implements TestSuitePlugin {
     const testName = 'timeout-recovery';
 
     try {
-      const client = new MCPTestClient(context.logger);
+      const client = new MCPTestClient(context.logger, context.chaos);
 
       try {
         await client.connectFromTarget(context.config.target);
@@ -373,7 +373,7 @@ export class TimeoutTestSuite implements TestSuitePlugin {
     const testName = 'progressive-timeout';
 
     try {
-      const client = new MCPTestClient(context.logger);
+      const client = new MCPTestClient(context.logger, context.chaos);
 
       try {
         await client.connectFromTarget(context.config.target);
