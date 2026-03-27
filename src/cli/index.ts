@@ -58,6 +58,8 @@ export async function runCLI(): Promise<void> {
     )
     .option('--strict', 'Enable strict mode (fail on unexpected capabilities)')
     .option('--fail-fast', 'Stop on first test failure')
+    .option('--parallel', 'Run test suites in parallel')
+    .option('--max-concurrent <n>', 'Max suites to run concurrently (default: all)', parseInt)
     .option('--chaos-seed <seed>', 'Seed for reproducible chaos testing')
     .option(
       '--chaos-intensity <level>',
@@ -411,6 +413,15 @@ async function runTests(options: any): Promise<void> {
     overrides.chaos = chaosConfig;
   }
 
+  // Wire parallelism config (must be before resolveConfig)
+  if (options.parallel || options.maxConcurrent) {
+    overrides.parallelism = {
+      ...config.parallelism,
+      // --max-concurrent takes priority, then --parallel defaults to unlimited (0 = all suites)
+      maxConcurrentTests: options.maxConcurrent || 0,
+    };
+  }
+
   if (options['timeout.connect'] || options['timeout.invoke']) {
     overrides.timeouts = {
       ...config.timeouts,
@@ -483,9 +494,10 @@ async function runTests(options: any): Promise<void> {
   });
 
   // Run tests
-  const testOptions = {
+  const testOptions: any = {
     failFast: options.failFast,
     strict: options.strict,
+    parallel: options.parallel || false,
   };
 
   logger.info('Starting MCP conformance tests...');
@@ -498,7 +510,8 @@ async function runTests(options: any): Promise<void> {
   const successRate = countable > 0 ? ((summary.passed / countable) * 100).toFixed(1) : '100.0';
 
   console.log('\n' + colors.blue('Test Results Summary:'));
-  console.log(`  Total: ${summary.total}  (${successRate}% pass rate, ${(durationMs / 1000).toFixed(1)}s)`);
+  const parallelInfo = testOptions.parallel ? `  [parallel, max ${finalConfig.parallelism?.maxConcurrentTests || 'all'}]` : '';
+  console.log(`  Total: ${summary.total}  (${successRate}% pass rate, ${(durationMs / 1000).toFixed(1)}s)${parallelInfo}`);
   console.log(`  ${colors.green('Passed')}: ${summary.passed}`);
   console.log(`  ${colors.red('Failed')}: ${summary.failed}`);
   console.log(`  ${colors.yellow('Skipped')}: ${summary.skipped}`);

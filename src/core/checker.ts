@@ -88,6 +88,9 @@ export class MCPChecker extends EventEmitter {
       const results = await this.executeTests(options);
       const endTime = Date.now();
 
+      // Populate fixtures from fixture manager (may have been written by suites)
+      results.fixtures = await this.fixtureManager.list();
+
       results.metadata = {
         mcpCheckVersion: this.config.version,
         startedAt: new Date(startTime).toISOString(),
@@ -120,17 +123,25 @@ export class MCPChecker extends EventEmitter {
     options?: TestExecutionOptions,
   ): Promise<TestResults> {
     const suitesToRun = this.getSuitesToRun(options);
+    const maxConcurrent = this.config.parallelism?.maxConcurrentTests || suitesToRun.length;
+    const isParallel = options?.parallel && maxConcurrent > 1 && suitesToRun.length > 1;
+
+    if (isParallel) {
+      this.logger.info(`Parallel execution: ${suitesToRun.length} suites, max ${maxConcurrent} concurrent`);
+      return this.executeTestsParallel(suitesToRun, options, maxConcurrent);
+    }
+    return this.executeTestsSequential(suitesToRun, options);
+  }
+
+  private async executeTestsSequential(
+    suitesToRun: string[],
+    options?: TestExecutionOptions,
+  ): Promise<TestResults> {
     const transport = await this.createTransport();
 
     try {
       const context = await this.createTestContext(transport);
       const suiteResults: TestSuiteResult[] = [];
-
-      let totalTests = 0;
-      let passed = 0;
-      let failed = 0;
-      let skipped = 0;
-      let warnings = 0;
 
       for (const suiteName of suitesToRun) {
         const suite = this.suites.get(suiteName);
@@ -145,28 +156,8 @@ export class MCPChecker extends EventEmitter {
         try {
           const result = await this.runSuite(suite, context);
           suiteResults.push(result);
-
-          totalTests += result.cases.length;
-          for (const testCase of result.cases) {
-            switch (testCase.status) {
-              case 'passed':
-                passed++;
-                break;
-              case 'failed':
-                failed++;
-                break;
-              case 'skipped':
-                skipped++;
-                break;
-              case 'warning':
-                warnings++;
-                break;
-            }
-          }
-
           this.emit('suite-complete', result);
 
-          // Fail fast if enabled
           if (options?.failFast && result.status === 'failed') {
             this.logger.info('Stopping execution due to fail-fast mode');
             break;
@@ -175,46 +166,133 @@ export class MCPChecker extends EventEmitter {
           this.logger.error(`Error running test suite ${suiteName}`, {
             error: error.message,
           });
-
-          const errorResult: TestSuiteResult = {
-            name: suiteName,
-            status: 'failed',
-            durationMs: 0,
-            cases: [],
-            setup: {
-              durationMs: 0,
-              error: error.message,
-            },
-          };
-
-          suiteResults.push(errorResult);
-          failed++;
-          totalTests++;
+          suiteResults.push(this.createErrorResult(suiteName, error));
         }
       }
 
-      return {
-        summary: {
-          total: totalTests,
-          passed,
-          failed,
-          skipped,
-          warnings,
-        },
-        suites: suiteResults,
-        fixtures: await this.fixtureManager.list(),
-        // Metadata is populated by the caller in run() method
-        metadata: {
-          mcpCheckVersion: '',
-          startedAt: '',
-          completedAt: '',
-          durationMs: 0,
-          environment: this.config.environment,
-        },
-      };
+      return this.aggregateResults(suiteResults);
     } finally {
       await this.cleanupTransport(transport);
     }
+  }
+
+  private async executeTestsParallel(
+    suitesToRun: string[],
+    options: TestExecutionOptions | undefined,
+    maxConcurrent: number,
+  ): Promise<TestResults> {
+    const abortController = new AbortController();
+    const suiteResults: TestSuiteResult[] = [];
+
+    const runOne = async (suiteName: string): Promise<void> => {
+      if (abortController.signal.aborted) return;
+
+      const suite = this.suites.get(suiteName);
+      if (!suite) {
+        this.logger.warn(`Test suite not found: ${suiteName}`);
+        return;
+      }
+
+      this.logger.info(`Running test suite: ${suiteName}`);
+      this.emit('suite-start', { name: suiteName });
+
+      // Each parallel suite gets its own isolated transport + context
+      const transport = await this.createTransport();
+      try {
+        const context = await this.createTestContext(transport);
+        const result = await this.runSuite(suite, context);
+        suiteResults.push(result);
+        this.emit('suite-complete', result);
+
+        if (options?.failFast && result.status === 'failed') {
+          this.logger.info(`Fail-fast: aborting remaining suites after ${suiteName}`);
+          abortController.abort();
+        }
+      } catch (error) {
+        this.logger.error(`Error running test suite ${suiteName}`, {
+          error: error.message,
+        });
+        suiteResults.push(this.createErrorResult(suiteName, error));
+      } finally {
+        await this.cleanupTransport(transport);
+      }
+    };
+
+    await this.runWithConcurrency(suitesToRun, runOne, maxConcurrent);
+
+    return this.aggregateResults(suiteResults);
+  }
+
+  /**
+   * Run async tasks with a concurrency limit (semaphore pattern).
+   */
+  private async runWithConcurrency<T>(
+    items: T[],
+    fn: (item: T) => Promise<void>,
+    maxConcurrent: number,
+  ): Promise<void> {
+    const queue = [...items];
+    const running: Promise<void>[] = [];
+
+    while (queue.length > 0 || running.length > 0) {
+      while (running.length < maxConcurrent && queue.length > 0) {
+        const item = queue.shift()!;
+        const promise = fn(item).then(
+          () => { running.splice(running.indexOf(promise), 1); },
+          () => { running.splice(running.indexOf(promise), 1); },
+        );
+        running.push(promise);
+      }
+      if (running.length > 0) {
+        await Promise.race(running);
+      }
+    }
+  }
+
+  /**
+   * Aggregate suite results into a TestResults summary.
+   */
+  private aggregateResults(suiteResults: TestSuiteResult[]): TestResults {
+    let totalTests = 0;
+    let passed = 0;
+    let failed = 0;
+    let skipped = 0;
+    let warnings = 0;
+
+    for (const result of suiteResults) {
+      for (const testCase of result.cases || []) {
+        totalTests++;
+        switch (testCase.status) {
+          case 'passed': passed++; break;
+          case 'failed': failed++; break;
+          case 'skipped': skipped++; break;
+          case 'warning': warnings++; break;
+        }
+      }
+    }
+
+    return {
+      summary: { total: totalTests, passed, failed, skipped, warnings },
+      suites: suiteResults,
+      fixtures: [],  // populated asynchronously below
+      metadata: {
+        mcpCheckVersion: '',
+        startedAt: '',
+        completedAt: '',
+        durationMs: 0,
+        environment: this.config.environment,
+      },
+    };
+  }
+
+  private createErrorResult(suiteName: string, error: any): TestSuiteResult {
+    return {
+      name: suiteName,
+      status: 'failed',
+      durationMs: 0,
+      cases: [],
+      setup: { durationMs: 0, error: error.message },
+    };
   }
 
   private async runSuite(
