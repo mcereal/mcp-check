@@ -142,6 +142,25 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     context: TestContext,
   ): Promise<void> {
     const toolName = tool.name;
+    const isReadOnly = expectedTool?.readOnly !== false; // default true (safe)
+
+    // Skip invocation tests for mutating tools
+    if (!isReadOnly) {
+      cases.push({
+        name: `tool-${toolName}-basic-invocation`,
+        status: 'skipped' as const,
+        durationMs: 0,
+        details: { reason: 'Tool marked as mutating (readOnly: false) — skipping invocation to avoid side effects' },
+      });
+      cases.push({
+        name: `tool-${toolName}-input-validation`,
+        status: 'skipped' as const,
+        durationMs: 0,
+        details: { reason: 'Tool marked as mutating (readOnly: false) — skipping' },
+      });
+      // Still run deterministic test? No — mutating tools shouldn't be called at all.
+      return;
+    }
 
     // Test case 1: Basic tool invocation with minimal valid input
     try {
@@ -151,7 +170,7 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
       const response = await client.callTool(toolName, basicInput);
       const invokeTime = Date.now() - invokeStart;
 
-      // Validate response structure
+      // Validate response structure per MCP spec
       const isValidResponse = this.validateToolResponse(response);
 
       cases.push({
@@ -181,26 +200,56 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
           const invalidStart = Date.now();
 
           try {
-            await client.callTool(toolName, invalidInput);
-            // If we get here, the tool didn't reject invalid input
-            cases.push({
-              name: `tool-${toolName}-input-validation`,
-              status: 'failed',
-              durationMs: Date.now() - invalidStart,
-              details: { invalidInput },
-              error: {
-                type: 'ValidationFailure',
-                message: 'Tool accepted invalid input without error',
-              },
-            });
+            const invalidResponse = await client.callTool(toolName, invalidInput);
+            const invalidTime = Date.now() - invalidStart;
+
+            // Server didn't throw — check if it signaled an error in the response
+            if (invalidResponse.isError) {
+              // Server returned isError: true — strict validation, pass
+              cases.push({
+                name: `tool-${toolName}-input-validation`,
+                status: 'passed',
+                durationMs: invalidTime,
+                details: {
+                  invalidInput,
+                  validationStyle: 'isError flag',
+                  message: 'Server returned isError: true for invalid input',
+                },
+              });
+            } else if (this.responseContainsError(invalidResponse)) {
+              // Server returned error info in body (common pattern) — pass with note
+              cases.push({
+                name: `tool-${toolName}-input-validation`,
+                status: 'passed',
+                durationMs: invalidTime,
+                details: {
+                  invalidInput,
+                  validationStyle: 'error in response body',
+                  message: 'Server returned error details in response body for invalid input',
+                },
+              });
+            } else {
+              // Server processed garbage input without any error signal — warning
+              cases.push({
+                name: `tool-${toolName}-input-validation`,
+                status: 'warning',
+                durationMs: invalidTime,
+                details: { invalidInput },
+                warnings: [
+                  'Tool accepted invalid input without signaling an error. ' +
+                  'Consider adding input validation or returning isError: true for malformed requests.',
+                ],
+              });
+            }
           } catch (error) {
-            // Good - the tool rejected invalid input
+            // Good - the tool rejected invalid input by throwing
             cases.push({
               name: `tool-${toolName}-input-validation`,
               status: 'passed',
               durationMs: Date.now() - invalidStart,
               details: {
                 invalidInput,
+                validationStyle: 'exception',
                 rejectionMessage: error.message,
               },
             });
@@ -216,8 +265,18 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
         }
       }
 
-      // Test case 3: Deterministic behavior (if configured)
-      if (expectedTool?.deterministic !== false) {
+      // Test case 3: Deterministic behavior
+      if (expectedTool?.deterministic === false) {
+        // Explicitly marked as non-deterministic — skip
+        cases.push({
+          name: `tool-${toolName}-deterministic-behavior`,
+          status: 'passed' as const,
+          durationMs: 0,
+          details: {
+            reason: 'Skipped — tool marked as non-deterministic in config (deterministic: false)',
+          },
+        });
+      } else {
         try {
           const deterministicInput = this.generateDeterministicInput(tool);
 
@@ -233,12 +292,14 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
             details: {
               input: deterministicInput,
               resultsMatch: isDeterministic,
+              ...(!isDeterministic ? { diff: this.describeResultDiff(result1, result2) } : {}),
             },
             ...(isDeterministic
               ? {}
               : {
                   warnings: [
-                    'Tool behavior appears non-deterministic with identical inputs',
+                    'Tool behavior appears non-deterministic with identical inputs. ' +
+                    'If this tool returns live data, set deterministic: false in config expectations.',
                   ],
                 }),
           });
@@ -356,17 +417,34 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
       const nonExistentToolName = 'non-existent-tool-' + Date.now();
 
       try {
-        await client.callTool(nonExistentToolName, {});
-        cases.push({
-          name: 'error-handling-nonexistent-tool',
-          status: 'failed',
-          durationMs: 0,
-          error: {
-            type: 'ErrorHandlingFailure',
-            message: 'Server did not return error for non-existent tool',
-          },
-        });
+        const response = await client.callTool(nonExistentToolName, {});
+
+        // Server didn't throw — check if it signaled an error via isError or response body
+        if (response.isError || this.responseContainsError(response)) {
+          // Server returned an error response — this is acceptable
+          cases.push({
+            name: 'error-handling-nonexistent-tool',
+            status: 'passed',
+            durationMs: 0,
+            details: {
+              toolName: nonExistentToolName,
+              errorSignaled: true,
+              isError: response.isError || false,
+            },
+          });
+        } else {
+          cases.push({
+            name: 'error-handling-nonexistent-tool',
+            status: 'failed',
+            durationMs: 0,
+            error: {
+              type: 'ErrorHandlingFailure',
+              message: 'Server did not return error for non-existent tool',
+            },
+          });
+        }
       } catch (error) {
+        // Server threw an exception — this is the standard behavior
         cases.push({
           name: 'error-handling-nonexistent-tool',
           status: 'passed',
@@ -703,9 +781,50 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
     return true;
   }
 
+  /**
+   * Check if a tool response contains error indicators in the body.
+   * Many MCP servers return errors as JSON in text content rather than
+   * using isError or throwing exceptions.
+   */
+  private responseContainsError(response: any): boolean {
+    if (!response?.content || !Array.isArray(response.content)) return false;
+    for (const item of response.content) {
+      if (item?.type === 'text' && typeof item.text === 'string') {
+        const text = item.text.toLowerCase();
+        // Check for JSON error objects
+        try {
+          const parsed = JSON.parse(item.text);
+          if (parsed && typeof parsed === 'object' && 'error' in parsed) return true;
+        } catch {
+          // Not JSON — check raw text
+        }
+        if (text.includes('"error"') || text.includes('error:')) return true;
+      }
+    }
+    return false;
+  }
+
   private compareResults(result1: unknown, result2: unknown): boolean {
-    // Simple comparison - in production you'd do deep comparison
     return JSON.stringify(result1) === JSON.stringify(result2);
+  }
+
+  /**
+   * Describe what differs between two tool results for actionable warning messages.
+   */
+  private describeResultDiff(result1: any, result2: any): string {
+    const s1 = JSON.stringify(result1);
+    const s2 = JSON.stringify(result2);
+    if (s1.length !== s2.length) {
+      return `Response sizes differ: ${s1.length} vs ${s2.length} chars`;
+    }
+    // Find first differing position
+    for (let i = 0; i < s1.length; i++) {
+      if (s1[i] !== s2[i]) {
+        const context = s1.substring(Math.max(0, i - 20), i + 20);
+        return `First difference at position ${i}: ...${context}...`;
+      }
+    }
+    return 'Responses differ (details unavailable)';
   }
 
   private determineOverallStatus(

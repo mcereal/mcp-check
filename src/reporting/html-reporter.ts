@@ -32,8 +32,8 @@ export class HtmlReporter extends BaseReporter {
     return {
       title: 'MCP Check Test Results',
       summary: results.summary,
-      suites: results.suites,
-      fixtures: results.fixtures,
+      suites: results.suites || [],
+      fixtures: results.fixtures || [],
       metadata: results.metadata,
       charts: {
         performance: this.generatePerformanceData(results),
@@ -43,19 +43,19 @@ export class HtmlReporter extends BaseReporter {
   }
 
   private generatePerformanceData(results: TestResults) {
-    return results.suites.map((suite) => ({
+    return (results.suites || []).map((suite) => ({
       name: suite.name,
       duration: suite.durationMs,
       status: suite.status,
-      testCount: suite.cases.length,
+      testCount: (suite.cases || []).length,
     }));
   }
 
   private generateTimelineData(results: TestResults) {
     const timeline: any[] = [];
-    let currentTime = new Date(results.metadata.startedAt).getTime();
+    let currentTime = new Date(results.metadata?.startedAt || Date.now()).getTime();
 
-    for (const suite of results.suites) {
+    for (const suite of results.suites || []) {
       timeline.push({
         name: suite.name,
         start: currentTime,
@@ -394,7 +394,7 @@ export class HtmlReporter extends BaseReporter {
     return `
         <div class="suites">
             <h2>Test Suite Results</h2>
-            ${data.suites.map((suite) => this.generateSuiteHtml(suite)).join('')}
+            ${(data.suites || []).map((suite) => this.generateSuiteHtml(suite)).join('')}
         </div>
     `;
   }
@@ -414,7 +414,7 @@ export class HtmlReporter extends BaseReporter {
                 <span class="suite-status ${statusClass}">${suite.status}</span>
             </div>
             <div class="suite-content" id="suite-${suite.name}">
-                ${suite.cases.map((testCase) => this.generateTestCaseHtml(testCase)).join('')}
+                ${(suite.cases || []).map((testCase) => this.generateTestCaseHtml(testCase)).join('')}
             </div>
         </div>
     `;
@@ -460,7 +460,7 @@ export class HtmlReporter extends BaseReporter {
   }
 
   private generateFixturesList(data: HtmlReportData): string {
-    if (!data.fixtures.length) {
+    if (!(data.fixtures || []).length) {
       return '';
     }
 
@@ -468,7 +468,7 @@ export class HtmlReporter extends BaseReporter {
         <div class="fixtures">
             <h2>Test Fixtures</h2>
             <p>The following fixtures can be used to reproduce test scenarios:</p>
-            ${data.fixtures.map((fixture) => this.generateFixtureHtml(fixture)).join('')}
+            ${(data.fixtures || []).map((fixture) => this.generateFixtureHtml(fixture)).join('')}
         </div>
     `;
   }

@@ -149,6 +149,14 @@
                                 "items": {
                                     "type": "string"
                                 }
+                            },
+                            "deterministic": {
+                                "type": "boolean",
+                                "description": "Whether this tool returns the same output for the same input. Set to false for live-data tools. Default: true."
+                            },
+                            "readOnly": {
+                                "type": "boolean",
+                                "description": "Whether this tool is safe to invoke during testing. Set to false for mutating tools to skip invocation tests. Default: true."
                             }
                         }
                     }

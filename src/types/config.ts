@@ -45,8 +45,13 @@ export interface ToolExpectation {
   outputSchemaRef?: string;
   description?: string;
   tags?: string[];
-  /** Whether the tool is expected to be deterministic (same input -> same output) */
+  /** Whether the tool is expected to be deterministic (same input -> same output).
+   *  Set to false for tools that return live/dynamic data. Default: true. */
   deterministic?: boolean;
+  /** Whether this tool is read-only (safe to invoke during testing).
+   *  Set to false for mutating tools (resolve, delete, create, etc.) to skip
+   *  invocation tests and avoid side effects. Default: true. */
+  readOnly?: boolean;
 }
 
 /**

@@ -34,20 +34,21 @@ export class JunitReporter extends BaseReporter {
   }
 
   private convertToJunitFormat(results: TestResults): JUnitTestSuite[] {
-    return results.suites.map((suite) => this.convertSuite(suite));
+    return (results.suites || []).map((suite) => this.convertSuite(suite));
   }
 
   private convertSuite(suite: TestSuiteResult): JUnitTestSuite {
-    const testcases = suite.cases.map((testCase) =>
+    const cases = suite.cases || [];
+    const testcases = cases.map((testCase) =>
       this.convertTestCase(testCase, suite.name),
     );
 
     return {
       name: suite.name,
-      tests: suite.cases.length,
-      failures: suite.cases.filter((c) => c.status === 'failed').length,
+      tests: cases.length,
+      failures: cases.filter((c) => c.status === 'failed').length,
       errors: 0, // We treat all failures as failures, not errors
-      skipped: suite.cases.filter((c) => c.status === 'skipped').length,
+      skipped: cases.filter((c) => c.status === 'skipped').length,
       time: suite.durationMs / 1000, // Convert to seconds
       testcases,
     };

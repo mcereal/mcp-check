@@ -93,8 +93,8 @@ export class JsonReporter extends BaseReporter {
     };
 
     const allTests: TestDurationEntry[] = [];
-    for (const suite of results.suites) {
-      for (const testCase of suite.cases) {
+    for (const suite of results.suites || []) {
+      for (const testCase of suite.cases || []) {
         allTests.push({
           name: `${suite.name}.${testCase.name}`,
           duration: testCase.durationMs,
@@ -117,10 +117,10 @@ export class JsonReporter extends BaseReporter {
   }
 
   private analyzeChaosImpact(results: TestResults) {
-    const chaosTests = results.suites.filter(
+    const chaosTests = (results.suites || []).filter(
       (suite) =>
         suite.name.includes('chaos') ||
-        suite.cases.some((c) => c.details?.chaosEnabled),
+        (suite.cases || []).some((c) => c.details?.chaosEnabled),
     );
 
     return {
