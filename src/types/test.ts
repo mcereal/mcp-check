@@ -26,6 +26,8 @@ export interface TestCaseResult {
   error?: {
     type: string;
     message: string;
+    /** Broad error category for grouping/filtering in reports */
+    category?: 'connection' | 'protocol' | 'timeout' | 'validation' | 'runtime' | 'resource';
     details?: Record<string, any>;
     fixture?: string;
     stack?: string;

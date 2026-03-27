@@ -51,12 +51,10 @@ export async function runCLI(): Promise<void> {
     .option(
       '-f, --format <formats>',
       'Output formats (json,html,junit,badge)',
-      'json,html',
     )
     .option(
       '-o, --output-dir <dir>',
       'Output directory for reports',
-      './reports',
     )
     .option('--strict', 'Enable strict mode (fail on unexpected capabilities)')
     .option('--fail-fast', 'Stop on first test failure')
@@ -484,12 +482,71 @@ async function runTests(options: any): Promise<void> {
 
   // Display summary
   const { summary } = results;
+  const durationMs = results.metadata?.durationMs || 0;
+  const countable = summary.total - summary.skipped;
+  const successRate = countable > 0 ? ((summary.passed / countable) * 100).toFixed(1) : '100.0';
+
   console.log('\n' + colors.blue('Test Results Summary:'));
-  console.log(`  Total: ${summary.total}`);
+  console.log(`  Total: ${summary.total}  (${successRate}% pass rate, ${(durationMs / 1000).toFixed(1)}s)`);
   console.log(`  ${colors.green('Passed')}: ${summary.passed}`);
   console.log(`  ${colors.red('Failed')}: ${summary.failed}`);
   console.log(`  ${colors.yellow('Skipped')}: ${summary.skipped}`);
   console.log(`  ${colors.yellow('Warnings')}: ${summary.warnings}`);
+
+  // Per-suite breakdown
+  if (results.suites && results.suites.length > 0) {
+    console.log('\n' + colors.blue('Suite Breakdown:'));
+    for (const suite of results.suites) {
+      const p = (suite.cases || []).filter((c: any) => c.status === 'passed').length;
+      const f = (suite.cases || []).filter((c: any) => c.status === 'failed').length;
+      const s = (suite.cases || []).filter((c: any) => c.status === 'skipped').length;
+      const w = (suite.cases || []).filter((c: any) => c.status === 'warning').length;
+      const total = (suite.cases || []).length;
+      const statusIcon = f > 0 ? colors.red('✗') : w > 0 ? colors.yellow('~') : colors.green('✓');
+      const parts = [`${p}/${total - s} passed`];
+      if (s > 0) parts.push(`${s} skipped`);
+      if (w > 0) parts.push(`${w} warnings`);
+      console.log(`  ${statusIcon} ${suite.name}: ${parts.join(', ')} (${(suite.durationMs / 1000).toFixed(1)}s)`);
+    }
+  }
+
+  // Skip summary (grouped by reason)
+  if (summary.skipped > 0 && results.suites) {
+    const skipReasons: Record<string, number> = {};
+    for (const suite of results.suites) {
+      for (const c of suite.cases || []) {
+        if (c.status === 'skipped') {
+          const reason = c.details?.reason || 'unknown';
+          // Normalize reason to a short category
+          const key = reason.includes('readOnly: false') ? 'mutating tools (readOnly: false)'
+            : reason.includes('deterministic') ? 'non-deterministic tools'
+            : reason.substring(0, 60);
+          skipReasons[key] = (skipReasons[key] || 0) + 1;
+        }
+      }
+    }
+    console.log('\n' + colors.blue('Skipped:'));
+    for (const [reason, count] of Object.entries(skipReasons)) {
+      console.log(`  ${count} tests: ${reason}`);
+    }
+  }
+
+  // Top 3 slowest tests
+  const allTests: { name: string; duration: number }[] = [];
+  for (const suite of results.suites || []) {
+    for (const c of suite.cases || []) {
+      if (c.status !== 'skipped') {
+        allTests.push({ name: `${suite.name}.${c.name}`, duration: c.durationMs });
+      }
+    }
+  }
+  allTests.sort((a, b) => b.duration - a.duration);
+  if (allTests.length > 0) {
+    console.log('\n' + colors.blue('Slowest Tests:'));
+    for (const t of allTests.slice(0, 3)) {
+      console.log(`  ${(t.duration / 1000).toFixed(1)}s  ${t.name}`);
+    }
+  }
 
   // Generate reports
   await generateReports(results, finalConfig, logger);

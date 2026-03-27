@@ -258,10 +258,26 @@ export class HandshakeTestSuite implements TestSuitePlugin {
         durationMs: Date.now() - startTime,
         error: {
           type: 'ConnectionError',
+          category: 'connection' as const,
           message: `Failed to establish connection: ${error.message}`,
           details: { error: error.message },
         },
       });
+
+      // Capture fixture for connection failure
+      try {
+        const fixture = await context.fixtures.generate({
+          id: `failure-handshake-connection-${Date.now()}`,
+          description: 'Connection establishment failed during handshake',
+          target: context.config.target,
+          scenario: {
+            toolName: 'N/A',
+            expectedBehavior: 'Server should accept MCP connection',
+            actualBehavior: error.message,
+          },
+        });
+        await context.fixtures.save(fixture);
+      } catch { /* don't let fixture capture break the run */ }
     }
 
     const endTime = Date.now();

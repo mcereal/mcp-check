@@ -142,7 +142,7 @@ describe('JSON Reporter', () => {
     expect(parsed.version).toBe('1.0.0');
     expect(parsed.summary).toEqual(sampleResults.summary);
     expect(parsed.analysis).toBeDefined();
-    expect(parsed.analysis.successRate).toBe(70); // 7/10 * 100
+    expect(parsed.analysis.successRate).toBeCloseTo(77.78, 1); // 7/(10-1 skipped) * 100
   });
 
   it('should include performance metrics', async () => {

@@ -8,6 +8,7 @@ import {
   TestSuiteResult,
   ValidationResult,
   TestCaseResult,
+  TestFixtureManager,
 } from '../types/test';
 import { CheckConfig, ToolExpectation } from '../types/config';
 import { MCPTestClient } from '../core/mcp-client';
@@ -84,6 +85,7 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
                 durationMs: 0,
                 error: {
                   type: 'ToolNotFound',
+                  category: 'validation' as const,
                   message: `Required tool '${expectedTool.name}' not found`,
                 },
               });
@@ -119,8 +121,12 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
         durationMs: Date.now() - startTime,
         error: {
           type: 'InitializationError',
+          category: 'connection' as const,
           message: error.message,
         },
+      });
+      await this.captureFixture(context.fixtures, 'initialization-error', {
+        toolName: 'N/A', error: error.message, target: context.config.target,
       });
     }
 
@@ -188,10 +194,19 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
           : {
               error: {
                 type: 'InvalidResponse',
+                category: 'validation' as const,
                 message: 'Tool response does not match expected structure',
               },
             }),
       });
+
+      // Capture fixture on response validation failure
+      if (!isValidResponse) {
+        await this.captureFixture(context.fixtures, `${toolName}-invalid-response`, {
+          toolName, input: basicInput, response, error: 'Response does not match expected MCP structure',
+          target: context.config.target,
+        });
+      }
 
       // Test case 2: Input validation (invalid input)
       if (tool.inputSchema) {
@@ -319,8 +334,12 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
         durationMs: 0,
         error: {
           type: 'InvocationError',
+          category: 'runtime' as const,
           message: error.message,
         },
+      });
+      await this.captureFixture(context.fixtures, `${toolName}-invocation-error`, {
+        toolName, error: error.message, target: context.config.target,
       });
     }
   }
@@ -388,6 +407,7 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
             : {
                 error: {
                   type: 'UnexpectedError',
+                  category: 'timeout' as const,
                   message: `Expected timeout error but got: ${error.message}`,
                 },
               }),
@@ -400,8 +420,12 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
         durationMs: 0,
         error: {
           type: 'TimeoutTestError',
+          category: 'timeout' as const,
           message: error.message,
         },
+      });
+      await this.captureFixture(context.fixtures, 'timeout-handling-error', {
+        toolName: tool.name, error: error.message, target: context.config.target,
       });
     }
   }
@@ -439,6 +463,7 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
             durationMs: 0,
             error: {
               type: 'ErrorHandlingFailure',
+              category: 'protocol' as const,
               message: 'Server did not return error for non-existent tool',
             },
           });
@@ -462,6 +487,7 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
         durationMs: 0,
         error: {
           type: 'ErrorTestError',
+          category: 'runtime' as const,
           message: error.message,
         },
       });
@@ -825,6 +851,39 @@ export class ToolInvocationTestSuite implements TestSuitePlugin {
       }
     }
     return 'Responses differ (details unavailable)';
+  }
+
+  /**
+   * Capture a fixture for a failed test case so it can be reproduced.
+   */
+  private async captureFixture(
+    fixtures: TestFixtureManager | undefined,
+    testName: string,
+    details: {
+      toolName: string;
+      input?: any;
+      response?: any;
+      error?: string;
+      target?: any;
+    },
+  ): Promise<void> {
+    if (!fixtures) return;
+    try {
+      const fixture = await fixtures.generate({
+        id: `failure-${testName}-${Date.now()}`,
+        description: `Auto-captured fixture for failed test: ${testName}`,
+        target: details.target || {},
+        scenario: {
+          toolName: details.toolName,
+          input: details.input,
+          expectedBehavior: 'Tool should respond with valid MCP content',
+          actualBehavior: details.error || 'Unexpected response',
+        },
+      });
+      await fixtures.save(fixture);
+    } catch {
+      // Don't let fixture capture failures break the test run
+    }
   }
 
   private determineOverallStatus(

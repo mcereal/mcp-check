@@ -325,6 +325,48 @@ export class ToolDiscoveryTestSuite implements TestSuitePlugin {
         });
       }
 
+      // Resource validation — check that expected resources are discoverable
+      try {
+        const resources = await client.listResources();
+        const expectedResources = context.config.expectations?.resources || [];
+
+        if (resources.length > 0 || expectedResources.length > 0) {
+          const foundUris = resources.map((r: any) => r.uri);
+          const missingResources = expectedResources.filter(
+            (er) => !foundUris.includes(er.uri),
+          );
+
+          cases.push({
+            name: 'resource-discovery',
+            status: missingResources.length === 0 ? 'passed' : 'failed',
+            durationMs: 5,
+            details: {
+              resourceCount: resources.length,
+              expectedCount: expectedResources.length,
+              foundUris: foundUris.slice(0, 30),
+              missingResources: missingResources.map((r) => r.uri),
+            },
+            ...(missingResources.length > 0
+              ? {
+                  error: {
+                    type: 'MissingResources',
+                    category: 'resource' as const,
+                    message: `Missing expected resources: ${missingResources.map((r) => r.uri).join(', ')}`,
+                  },
+                }
+              : {}),
+          });
+        }
+      } catch (error) {
+        // Resources not supported — skip gracefully
+        cases.push({
+          name: 'resource-discovery',
+          status: 'skipped',
+          durationMs: 0,
+          details: { reason: `Resource listing not supported: ${error.message}` },
+        });
+      }
+
       await client.close();
     } catch (error) {
       cases.push({

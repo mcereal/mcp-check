@@ -172,6 +172,9 @@ export abstract class BaseReporter implements Reporter {
   }
 
   protected calculateSuccessRate(summary: TestResults['summary']): number {
-    return summary.total > 0 ? (summary.passed / summary.total) * 100 : 0;
+    // Exclude skipped tests from the denominator — skipped tests aren't failures,
+    // they're intentionally not run (e.g., mutating tools marked readOnly: false).
+    const countable = summary.total - summary.skipped;
+    return countable > 0 ? (summary.passed / countable) * 100 : 100;
   }
 }
