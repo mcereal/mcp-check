@@ -38,7 +38,11 @@ class MockWebSocket {
 
   close = jest.fn((code?: number, reason?: string) => {
     this.readyState = MockWebSocket.CLOSED;
-    this.dispatchEvent(new CloseEvent('close', { code: code || 1000, reason }));
+    // CloseEvent is not available in all Node.js versions — use a plain Event with properties
+    const event = new Event('close') as any;
+    event.code = code || 1000;
+    event.reason = reason;
+    this.dispatchEvent(event);
   });
 
   // Helper to dispatch events for testing
