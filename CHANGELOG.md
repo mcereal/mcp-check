@@ -1,3 +1,12 @@
+## [1.0.7](https://github.com/mcereal/mcp-check/compare/v1.0.6...v1.0.7) (2026-03-27)
+
+
+### Bug Fixes
+
+* false positive reporting ([0a51dcf](https://github.com/mcereal/mcp-check/commit/0a51dcf6616fd691bf2dae9a1056803a9104b267))
+* node env close event ([71be484](https://github.com/mcereal/mcp-check/commit/71be4847deebbc676b984a5a62ff9f17fb248041))
+* remove deps ([2288544](https://github.com/mcereal/mcp-check/commit/228854454ce282a57325124505776b8e558746eb))
+
 ## [1.0.6](https://github.com/mcereal/mcp-check/compare/v1.0.5...v1.0.6) (2025-12-17)
 
 
